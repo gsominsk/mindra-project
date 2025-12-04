@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# media files (served from external storage in production)
+public/media/
+
+# editor files
+*.swp
+*.swo
+*~
