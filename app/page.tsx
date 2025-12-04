@@ -27,11 +27,11 @@ const NavigationDock = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
 
-  const navItems = [
+  const navItems: { key: string; label: string }[] = [
     // { key: "party", label: t.home.nav.party },
     // { key: "business", label: t.home.nav.business },
     // { key: "wedding", label: t.home.nav.wedding },
-    { key: "contact", label: t.home.nav.contact }
+    // { key: "contact", label: t.home.nav.contact }
   ];
 
   const languages = [
@@ -41,31 +41,32 @@ const NavigationDock = () => {
 
   return (
     <>
-      {/* Desktop Navigation Dock - hidden on mobile/tablet */}
-      <motion.div
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 1.2, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="hidden lg:block absolute bottom-[72px] left-1/2 -translate-x-1/2 z-50"
-      >
-        <nav className="bg-white/5 backdrop-blur-xl border border-white/10 px-8 py-4 rounded-full flex items-center gap-8 shadow-2xl">
-          {navItems.map((item) => (
-            <Link
-              key={item.key}
-              href={`/${item.key}`}
-              className="text-[10px] lg:text-xs font-roboto font-bold tracking-[0.2em] text-white hover:text-zinc-300 transition-colors relative group uppercase"
-            >
-              {item.label}
-              <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white transition-all duration-300 group-hover:w-full" />
-            </Link>
-          ))}
-        </nav>
-      </motion.div>
+      {/* Desktop Navigation Dock - hidden on mobile/tablet and when no items */}
+      {navItems.length > 0 && (
+        <motion.div
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 1.2, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className="hidden lg:block absolute bottom-[72px] left-1/2 -translate-x-1/2 z-50"
+        >
+          <nav className="bg-white/5 backdrop-blur-xl border border-white/10 px-8 py-4 rounded-full flex items-center gap-8 shadow-2xl">
+            {navItems.map((item) => (
+              <Link
+                key={item.key}
+                href={`/${item.key}`}
+                className="text-[10px] lg:text-xs font-roboto font-bold tracking-[0.2em] text-white hover:text-zinc-300 transition-colors relative group uppercase"
+              >
+                {item.label}
+                <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white transition-all duration-300 group-hover:w-full" />
+              </Link>
+            ))}
+          </nav>
+        </motion.div>
+      )}
 
-      {/* Mobile/Tablet Controls */}
+      {/* Mobile/Tablet Controls - TEMPORARILY DISABLED
       <div className="lg:hidden absolute bottom-8 right-6 z-50 flex flex-col items-end gap-3">
 
-        {/* Language Switcher Button */}
         <div className="relative">
           <button
             onClick={() => {
@@ -79,7 +80,6 @@ const NavigationDock = () => {
             </span>
           </button>
 
-          {/* Language Dropdown */}
           <AnimatePresence>
             {isLangMenuOpen && (
               <motion.div
@@ -112,7 +112,6 @@ const NavigationDock = () => {
           </AnimatePresence>
         </div>
 
-        {/* Hamburger Menu Button */}
         <button
           onClick={() => {
             setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -123,7 +122,6 @@ const NavigationDock = () => {
           {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
 
-        {/* Mobile Menu Dropdown */}
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.div
@@ -156,6 +154,7 @@ const NavigationDock = () => {
           )}
         </AnimatePresence>
       </div>
+      */}
     </>
   );
 };
@@ -434,6 +433,7 @@ export default function Home() {
               src={getMediaUrl('images/hero-bg.jpg')}
               alt="Mindra Host"
               fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-cover object-top"
               priority
             />
