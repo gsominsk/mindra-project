@@ -6,7 +6,7 @@ services:
     container_name: mindra-website
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "80:3000"
     volumes:
       # Mount server media directory to /app/public/media inside container
       - /root/media:/app/public/media:ro
