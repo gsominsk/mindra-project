@@ -27,6 +27,8 @@ COPY . .
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# Limit Node.js memory for low-RAM servers
+ENV NODE_OPTIONS="--max-old-space-size=512"
 
 # Build Next.js application
 RUN npm run build
