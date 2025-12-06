@@ -1,0 +1,41 @@
+import { 
+  Briefcase, 
+  Heart, 
+  PartyPopper, 
+  Image as ImageIcon, 
+  AlignLeft, 
+  Type, 
+  Trash2, 
+  Plus,
+  Minus,
+  MoveUp,
+  MoveDown,
+  LayoutTemplate,
+  Video,
+  Bold,
+  Italic,
+  AlignCenter,
+  AlignRight,
+  AlignJustify
+} from 'lucide-react';
+
+export const Icons = {
+  Business: Briefcase,
+  Wedding: Heart,
+  Party: PartyPopper,
+  Image: ImageIcon,
+  Video: Video,
+  Layout: LayoutTemplate,
+  Text: Type,
+  Delete: Trash2,
+  Add: Plus,
+  Minus: Minus,
+  Up: MoveUp,
+  Down: MoveDown,
+  Left: AlignLeft,
+  Center: AlignCenter,
+  Right: AlignRight,
+  Justify: AlignJustify,
+  Bold: Bold,
+  Italic: Italic
+};

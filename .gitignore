@@ -47,3 +47,5 @@ public/media/
 *.swp
 *.swo
 *~
+
+/app/generated/prisma

@@ -354,12 +354,12 @@ export default function Home() {
   const { t } = useLanguage();
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-[#050505] text-white selection:bg-white selection:text-black">
+    <main className="relative min-h-screen-safe w-full overflow-hidden bg-[#050505] text-white selection:bg-white selection:text-black">
       <GrainOverlay />
       <ContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
       {/* Split Layout */}
-      <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-2">
+      <div className="grid min-h-screen-safe w-full grid-cols-1 lg:grid-cols-2">
 
         {/* Left: Typography & Action */}
         <div className="relative flex flex-col justify-center p-6 lg:px-20 lg:py-0 z-10 order-2 lg:order-1 bg-[#050505]">
@@ -422,7 +422,7 @@ export default function Home() {
         </div>
 
         {/* Right: Visual */}
-        <div className="relative h-[60vh] md:h-[75vh] lg:h-full w-full order-1 lg:order-2 overflow-hidden">
+        <div className="relative h-[60dvh] md:h-[75dvh] lg:h-full w-full order-1 lg:order-2 overflow-hidden supports-[height:100dvh]:h-[60dvh] supports-[height:100dvh]:md:h-[75dvh]">
           <motion.div
             initial={{ scale: 1.1, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
