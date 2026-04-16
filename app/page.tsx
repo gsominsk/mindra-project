@@ -28,10 +28,10 @@ const NavigationDock = () => {
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
 
   const navItems: { key: string; label: string }[] = [
-    // { key: "party", label: t.home.nav.party },
-    // { key: "business", label: t.home.nav.business },
-    // { key: "wedding", label: t.home.nav.wedding },
-    // { key: "contact", label: t.home.nav.contact }
+    { key: "party", label: t.home.nav.party },
+    { key: "business", label: t.home.nav.business },
+    { key: "wedding", label: t.home.nav.wedding },
+    { key: "contact", label: t.home.nav.contact }
   ];
 
   const languages = [
@@ -64,7 +64,7 @@ const NavigationDock = () => {
         </motion.div>
       )}
 
-      {/* Mobile/Tablet Controls - TEMPORARILY DISABLED
+      {/* Mobile/Tablet Controls */}
       <div className="lg:hidden absolute bottom-8 right-6 z-50 flex flex-col items-end gap-3">
 
         <div className="relative">
@@ -154,7 +154,6 @@ const NavigationDock = () => {
           )}
         </AnimatePresence>
       </div>
-      */}
     </>
   );
 };

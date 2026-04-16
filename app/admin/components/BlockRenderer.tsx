@@ -79,21 +79,34 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
     });
   };
 
-  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error('Upload failed');
+
+        const data = await res.json();
         const mediaType = file.type.startsWith('video') ? 'video' : 'image';
+
         onUpdate(block.id, {
           content: {
             ...block.content,
-            mediaUrl: reader.result as string,
+            mediaUrl: data.url,
             mediaType
           }
         });
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        alert('Failed to upload file');
+      }
     }
   };
 
@@ -257,8 +270,8 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
 
       {/* Dynamic Content Grid */}
       <div className={`grid gap-6 ${block.layout === 'media-left' ? 'grid-cols-1 md:grid-cols-2' :
-          block.layout === 'media-right' ? 'grid-cols-1 md:grid-cols-2' :
-            'grid-cols-1'
+        block.layout === 'media-right' ? 'grid-cols-1 md:grid-cols-2' :
+          'grid-cols-1'
         }`}>
 
         {/* Render Order Logic */}

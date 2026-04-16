@@ -73,7 +73,7 @@ export default function BusinessContact() {
                         className="mb-8 text-center"
                     >
                         <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3 tracking-tight">
-                            Зв'язатися з нами
+                            Зв&apos;язатися з нами
                         </h1>
                     </motion.div>
 
@@ -90,7 +90,7 @@ export default function BusinessContact() {
                                 {/* Name Field */}
                                 <div>
                                     <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1.5">
-                                        Ім'я
+                                        Ім&apos;я
                                     </label>
                                     <input
                                         type="text"
@@ -100,7 +100,7 @@ export default function BusinessContact() {
                                         onChange={handleChange}
                                         required
                                         className="w-full px-3.5 py-2.5 bg-black border border-[#38434f] rounded-md text-white placeholder-slate-500 focus:outline-none focus:border-[#70b5f9] focus:ring-1 focus:ring-[#70b5f9] transition-colors"
-                                        placeholder="Ваше ім'я"
+                                        placeholder="Ваше ім&apos;я"
                                     />
                                 </div>
 
@@ -213,9 +213,7 @@ export default function BusinessContact() {
                             className="bg-[#1b1f23] rounded-xl p-6 shadow-sm border border-[#38434f] lg:self-center"
                         >
                             <div>
-                                <h2 className="text-xl font-bold text-white mb-4">
-                                    Чому обрати нас?
-                                </h2>
+                                <h1 className="font-syne font-bold text-5xl md:text-7xl mb-6">Let&apos;s Talk</h1>
                                 <div className="space-y-3">
                                     {/* Benefit 1 */}
                                     <div className="flex gap-3 items-start">

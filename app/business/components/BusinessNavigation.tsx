@@ -11,7 +11,6 @@ export const BusinessNavigation = () => {
 
     const navLinks = [
         { href: "/business", label: "Home" },
-        { href: "/business/about", label: "About Me" },
         { href: "/business/portfolio", label: "Portfolio" },
         { href: "/business/contact", label: "Contact" },
     ];

@@ -4,6 +4,8 @@
   --font-syne: var(--font-syne);
   --font-roboto: var(--font-roboto);
   --font-inter: var(--font-inter);
+  --font-playfair: var(--font-playfair);
+  --font-lato: var(--font-lato);
 }
 
 :root {

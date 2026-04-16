@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model EventPage {
+  id          String   @id @default(cuid())
+  title       String
+  eventType   String
+  slug        String   @unique
+  isPublished Boolean  @default(false)
+  blocks      Block[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Instagram source tracking
+  igShortcode   String?  @unique // Post shortcode for deduplication
+  igSourceType  String?          // "post" | "highlight" | "reel"
+  igProfileName String?          // Source Instagram profile
+  igSyncedAt    DateTime?        // Last sync timestamp
+}
+
+model Block {
+  id        String    @id @default(cuid())
+  order     Int
+  layout    String
+  text      String?
+  textStyle String? // Stored as JSON string
+  mediaUrl  String?
+  mediaType String?
+  pageId    String
+  page      EventPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+}
+
+model SyncJob {
+  id           String    @id @default(cuid())
+  mode         String    // "initial" | "daily"
+  status       String    @default("running") // "running" | "completed" | "failed"
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  postsFound   Int       @default(0)
+  postsCreated Int       @default(0)
+  postsSkipped Int       @default(0)
+  errors       Int       @default(0)
+  errorLog     String?   // JSON array of error summaries
+}

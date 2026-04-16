@@ -12,6 +12,8 @@ const config: Config = {
                 syne: ["var(--font-syne)", "sans-serif"],
                 roboto: ["var(--font-roboto)", "sans-serif"],
                 inter: ["var(--font-inter)", "sans-serif"],
+                playfair: ["var(--font-playfair)", "serif"],
+                lato: ["var(--font-lato)", "sans-serif"],
             },
             colors: {
                 background: "var(--background)",

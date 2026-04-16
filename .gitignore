@@ -49,3 +49,16 @@ public/media/
 *~
 
 /app/generated/prisma
+
+# Instagram sync pipeline
+scripts/instagram_sync/downloads/
+scripts/instagram_sync/state/
+scripts/instagram_sync/logs/
+scripts/instagram_sync/dlq/
+scripts/instagram_sync/.env.sync
+scripts/instagram_sync/session.cookie
+scripts/instagram_sync/load_test_workspace/
+scripts/instagram_sync/tests/__pycache__/
+scripts/instagram_sync/__pycache__/
+.pytest_cache/
+__pycache__/

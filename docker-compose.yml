@@ -10,6 +10,7 @@ services:
     volumes:
       # Mount server media directory to /app/public/media inside container
       - /root/media:/app/public/media:ro
+      - uploads-data:/app/public/uploads
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_MEDIA_URL=/media
@@ -18,6 +19,32 @@ services:
     networks:
       - mindra-network
 
+  ig-sync:
+    build:
+      context: ./scripts/instagram_sync
+      dockerfile: Dockerfile
+    container_name: mindra-ig-sync
+    volumes:
+      - uploads-data:/uploads
+      - sync-state:/app/state
+      - sync-logs:/app/logs
+    environment:
+      - CMS_BASE_URL=http://app:3000
+      - IG_TARGET_PROFILE=${IG_TARGET_PROFILE}
+    depends_on:
+      - app
+    command: ["python", "-m", "entrypoint", "--mode", "daily", "--profile", "${IG_TARGET_PROFILE}"]
+    profiles:
+      - sync
+    networks:
+      - mindra-network
+
 networks:
   mindra-network:
     driver: bridge
+
+volumes:
+  uploads-data:
+  sync-state:
+  sync-logs:
+
