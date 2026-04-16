@@ -10,6 +10,7 @@ Mapping rules (from Section 3 of the plan):
 
 import re
 import logging
+from datetime import datetime, timezone
 from .models import (
     PageState,
     PageBlock,
@@ -161,6 +162,7 @@ def _map_carousel(post: DownloadedPost, urls: list[str]) -> PageState:
         igShortcode=post.shortcode,
         igSourceType=post.source_type,
         igProfileName=post.profile_name,
+        createdAt=datetime.fromtimestamp(post.timestamp, tz=timezone.utc).isoformat(),
     )
 
 
@@ -194,6 +196,7 @@ def _map_reel(post: DownloadedPost, urls: list[str]) -> PageState:
         igShortcode=post.shortcode,
         igSourceType="reel",
         igProfileName=post.profile_name,
+        createdAt=datetime.fromtimestamp(post.timestamp, tz=timezone.utc).isoformat(),
     )
 
 
@@ -227,4 +230,5 @@ def _map_photo(post: DownloadedPost, urls: list[str]) -> PageState:
         igShortcode=post.shortcode,
         igSourceType="post",
         igProfileName=post.profile_name,
+        createdAt=datetime.fromtimestamp(post.timestamp, tz=timezone.utc).isoformat(),
     )

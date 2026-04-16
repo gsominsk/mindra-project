@@ -8,7 +8,7 @@ export async function PUT(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { title, eventType, blocks } = body;
+        const { title, eventType, blocks, isPublished } = body;
 
         // Update page details
         // Note: We are deleting all blocks and recreating them for simplicity
@@ -20,6 +20,7 @@ export async function PUT(
                 data: {
                     title,
                     eventType,
+                    isPublished,
                     // Optionally update slug if title changed, but keeping it stable is usually better for SEO
                 },
             });
@@ -50,6 +51,33 @@ export async function PUT(
         console.error("Update page error:", error);
         return NextResponse.json(
             { error: "Failed to update page", details: (error as Error).message },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params;
+        const body = await request.json();
+        const { eventType, isPublished } = body;
+
+        const page = await prisma.eventPage.update({
+            where: { id },
+            data: { 
+                ...(eventType !== undefined && { eventType }),
+                ...(isPublished !== undefined && { isPublished })
+            },
+        });
+
+        return NextResponse.json(page);
+    } catch (error: unknown) {
+        console.error("Patch page error:", error);
+        return NextResponse.json(
+            { error: "Failed to patch page", details: (error as Error).message },
             { status: 500 }
         );
     }

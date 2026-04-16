@@ -16,7 +16,8 @@ import {
   Italic,
   AlignCenter,
   AlignRight,
-  AlignJustify
+  AlignJustify,
+  FileQuestion
 } from 'lucide-react';
 
 export const Icons = {
@@ -37,5 +38,6 @@ export const Icons = {
   Right: AlignRight,
   Justify: AlignJustify,
   Bold: Bold,
-  Italic: Italic
+  Italic: Italic,
+  Draft: FileQuestion
 };

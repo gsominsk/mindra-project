@@ -1,4 +1,4 @@
-export type EventType = 'business' | 'wedding' | 'party';
+export type EventType = 'business' | 'wedding' | 'party' | 'uncategorized';
 
 export type BlockLayout = 'media-left' | 'media-right' | 'media-only' | 'text-only';
 
@@ -31,5 +31,6 @@ export interface PageBlock {
 export interface PageState {
   title: string;
   eventType: EventType;
+  isPublished: boolean;
   blocks: PageBlock[];
 }

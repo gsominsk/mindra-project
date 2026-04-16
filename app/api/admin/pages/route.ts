@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { title, eventType, blocks, igShortcode, igSourceType, igProfileName } = body;
+        const { title, eventType, blocks, igShortcode, igSourceType, igProfileName, createdAt, isPublished } = body;
 
         if (!title || !eventType || !blocks || !Array.isArray(blocks) || blocks.length === 0) {
             return NextResponse.json(
@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
                 title,
                 eventType,
                 slug,
+                isPublished: isPublished ?? false,
+                createdAt: createdAt ? new Date(createdAt) : undefined,
                 igShortcode: igShortcode || null,
                 igSourceType: igSourceType || null,
                 igProfileName: igProfileName || null,

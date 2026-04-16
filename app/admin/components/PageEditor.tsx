@@ -37,6 +37,7 @@ export default function PageEditor({ initialData, isEditing = false }: PageEdito
     const [state, setState] = useState<PageState>(initialData || {
         title: 'My Awesome Event',
         eventType: 'business',
+        isPublished: true,
         blocks: [createNewBlock()]
     });
 
@@ -181,6 +182,12 @@ export default function PageEditor({ initialData, isEditing = false }: PageEdito
                         Dashboard
                     </button>
                     <button
+                        onClick={() => setState(p => ({ ...p, isPublished: !p.isPublished }))}
+                        className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm ${state.isPublished ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-200' : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-200'}`}
+                    >
+                        {state.isPublished ? 'Live' : 'Draft'}
+                    </button>
+                    <button
                         onClick={handleSave}
                         className={`px-4 md:px-6 py-2 rounded-lg text-sm font-medium text-white shadow-lg shadow-blue-500/20 transition-all transform hover:-translate-y-0.5 ${theme.button}`}
                     >
@@ -211,7 +218,8 @@ export default function PageEditor({ initialData, isEditing = false }: PageEdito
                         {[
                             { id: 'business', icon: Icons.Business, label: 'Business' },
                             { id: 'wedding', icon: Icons.Wedding, label: 'Wedding' },
-                            { id: 'party', icon: Icons.Party, label: 'Party' }
+                            { id: 'party', icon: Icons.Party, label: 'Party' },
+                            { id: 'uncategorized', icon: Icons.Draft, label: 'Raw Sync' }
                         ].map((type) => (
                             <button
                                 key={type.id}
@@ -222,6 +230,7 @@ export default function PageEditor({ initialData, isEditing = false }: PageEdito
                                     } ${state.eventType === type.id && state.eventType === 'party' ? '!bg-purple-600 !text-white' : ''}
                   ${state.eventType === type.id && state.eventType === 'wedding' ? '!bg-rose-100 !text-rose-900' : ''}
                   ${state.eventType === type.id && state.eventType === 'business' ? '!bg-blue-100 !text-blue-900' : ''}
+                  ${state.eventType === type.id && state.eventType === 'uncategorized' ? '!bg-yellow-100 !text-yellow-800' : ''}
                 `}
                             >
                                 <type.icon size={18} />

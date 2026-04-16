@@ -29,6 +29,7 @@ export default async function EditPage({ params }: EditPageProps) {
         slug: page.slug,
         title: page.title,
         eventType: page.eventType as EventType,
+        isPublished: page.isPublished,
         blocks: page.blocks.map(block => ({
             id: block.id,
             layout: block.layout as BlockLayout,

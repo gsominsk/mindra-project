@@ -73,6 +73,7 @@ class PageState(BaseModel):
     igShortcode: Optional[str] = None
     igSourceType: Optional[Literal["post", "highlight", "reel"]] = None
     igProfileName: Optional[str] = None
+    createdAt: Optional[str] = None
 
 
 class UploadResponse(BaseModel):

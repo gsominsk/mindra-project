@@ -177,7 +177,11 @@ def run_profile_sync(
     dlq = DeadLetterQueue(config.dlq_dir, config.dlq_max_retries)
 
     known = checkpoint.get_known_shortcodes()
-    max_posts = None if mode == "initial" else 50
+    # Apply user --limit or fallback to default limits
+    if getattr(config, "_max_posts_limit", None) is not None:
+        max_posts = config._max_posts_limit
+    else:
+        max_posts = None if mode == "initial" else 50
 
     stats = {"created": 0, "skipped": 0, "errors": 0}
 
@@ -317,6 +321,11 @@ Examples:
         help="Preview mode: don't upload media or create pages",
     )
     parser.add_argument(
+        "--limit",
+        type=int,
+        help="Limit the maximum number of posts to process (e.g. 5 for a quick test)",
+    )
+    parser.add_argument(
         "--cms-url",
         type=str,
         help="Override CMS base URL (default: from .env.sync)",
@@ -332,6 +341,7 @@ Examples:
 
     # Setup logging
     logger = setup_logger(config.log_dir)
+    config._max_posts_limit = args.limit
 
     # Dispatch
     if args.shortcode:

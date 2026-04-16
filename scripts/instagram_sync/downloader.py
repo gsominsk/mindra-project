@@ -179,17 +179,17 @@ class IGDownloader:
                 ext = ".mp4" if node.is_video else ".jpg"
                 filename = target_dir / f"slide_{i}{ext}"
                 url = node.video_url if node.is_video else node.display_url
-                self.loader.context.get_and_write_raw(url, filename)
+                self.loader.context.get_and_write_raw(url, str(filename))
                 media_files.append(filename)
                 media_types.append("video" if node.is_video else "image")
         elif post.is_video:
             filename = target_dir / "video.mp4"
-            self.loader.context.get_and_write_raw(post.video_url, filename)
+            self.loader.context.get_and_write_raw(post.video_url, str(filename))
             media_files.append(filename)
             media_types.append("video")
         else:
             filename = target_dir / "photo.jpg"
-            self.loader.context.get_and_write_raw(post.url, filename)
+            self.loader.context.get_and_write_raw(post.url, str(filename))
             media_files.append(filename)
             media_types.append("image")
 

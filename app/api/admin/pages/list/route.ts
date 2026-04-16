@@ -12,15 +12,13 @@ export async function GET() {
                 title: true,
                 slug: true,
                 createdAt: true,
+                igSyncedAt: true,
                 eventType: true,
+                isPublished: true,
                 blocks: {
-                    where: {
-                        mediaUrl: { not: null },
-                        mediaType: { startsWith: 'image' }
-                    },
-                    take: 1,
                     select: {
-                        mediaUrl: true
+                        mediaUrl: true,
+                        text: true
                     }
                 }
             }

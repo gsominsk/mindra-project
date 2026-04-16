@@ -17,7 +17,10 @@ class SyncConfig:
     cms_base_url: str = os.getenv("CMS_BASE_URL", "http://localhost:3000")
 
     # Instagram
-    ig_cookie_file: str = os.getenv("IG_COOKIE_FILE", "session.cookie")
+    ig_cookie_file: str = os.getenv(
+        "IG_COOKIE_FILE", 
+        str(Path(__file__).parent / "session.cookie")
+    )
     ig_target_profile: str = os.getenv("IG_TARGET_PROFILE", "")
 
     # Rate limiting
