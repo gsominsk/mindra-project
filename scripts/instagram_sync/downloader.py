@@ -163,6 +163,16 @@ class IGDownloader:
                     )
                     raise
 
+    def _safe_download(self, url: str, filename: Path, max_retries: int = 3) -> None:
+        """Download media with file size validation to prevent 0-byte corruptions."""
+        for attempt in range(max_retries):
+            self.loader.context.get_and_write_raw(url, str(filename))
+            if filename.exists() and filename.stat().st_size > 0:
+                return
+            logger.warning(f"File {filename.name} is 0 bytes (attempt {attempt + 1}/{max_retries}). Retrying...")
+            time.sleep(2)
+        raise IOError(f"Failed to download valid file for {filename.name} after {max_retries} attempts.")
+
     def _process_post(self, post: instaloader.Post) -> DownloadedPost:
         """Download media and extract metadata from a post."""
         shortcode = post.shortcode
@@ -179,17 +189,17 @@ class IGDownloader:
                 ext = ".mp4" if node.is_video else ".jpg"
                 filename = target_dir / f"slide_{i}{ext}"
                 url = node.video_url if node.is_video else node.display_url
-                self.loader.context.get_and_write_raw(url, str(filename))
+                self._safe_download(url, filename)
                 media_files.append(filename)
                 media_types.append("video" if node.is_video else "image")
         elif post.is_video:
             filename = target_dir / "video.mp4"
-            self.loader.context.get_and_write_raw(post.video_url, str(filename))
+            self._safe_download(post.video_url, filename)
             media_files.append(filename)
             media_types.append("video")
         else:
             filename = target_dir / "photo.jpg"
-            self.loader.context.get_and_write_raw(post.url, str(filename))
+            self._safe_download(post.url, filename)
             media_files.append(filename)
             media_types.append("image")
 

@@ -48,3 +48,33 @@ model SyncJob {
   errors       Int       @default(0)
   errorLog     String?   // JSON array of error summaries
 }
+
+model BookingRequest {
+  id        String   @id @default(cuid())
+  name      String
+  contact   String
+  message   String?
+  eventType String?
+  date      String?
+  status    String   @default("NEW") // "NEW", "CONTACTED", "ARCHIVED"
+  createdAt DateTime @default(now())
+}
+
+model RawInstagramPost {
+  id            String   @id @default(cuid())
+  shortcode     String   @unique
+  profileName   String
+  sourceType    String   // "post", "reel", "highlight"
+  rawCaption    String   // Оригинальный текст поста
+  mediaUrls     String   // JSON массив загруженных путей
+  mediaTypes    String   // JSON массив ("image", "video")
+
+  // Механизм очереди (Queue fields вместо файлового DLQ)
+  status        String   @default("PENDING") // PENDING, PROCESSING, ERROR, COMPLETED, FAILED
+  retryCount    Int      @default(0)
+  lastError     String?  // Последняя ошибка парсинга
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  nextRetryAt   DateTime @default(now()) // Карантинный таймер ретраев
+}

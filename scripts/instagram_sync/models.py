@@ -12,6 +12,7 @@ class EventType(str, Enum):
     BUSINESS = "business"
     WEDDING = "wedding"
     PARTY = "party"
+    BLOG = "blog"
     UNCATEGORIZED = "uncategorized"
 
 

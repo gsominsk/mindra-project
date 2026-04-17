@@ -15,7 +15,6 @@ def _make_api(tmp_path: Path, dry_run: bool = False) -> MindraCMSAPI:
         download_dir=tmp_path / "dl",
         checkpoint_dir=tmp_path / "state",
         log_dir=tmp_path / "logs",
-        dlq_dir=tmp_path / "dlq",
         dry_run=dry_run,
     )
     return MindraCMSAPI(config)
@@ -160,3 +159,40 @@ def test_dry_run_skips_requests(tmp_path: Path):
     assert "dry-run" in url
 
     # No responses registered → if it tried HTTP it would fail
+
+
+@responses.activate
+def test_push_raw_post(tmp_path: Path):
+    responses.add(
+        responses.POST,
+        "http://mock-cms:3000/api/sync/queue",
+        json={"success": True},
+        status=200,
+    )
+    api = _make_api(tmp_path)
+    res = api.push_raw_post({"shortcode": "test"})
+    assert res["success"] is True
+
+@responses.activate
+def test_fetch_job_from_queue(tmp_path: Path):
+    responses.add(
+        responses.GET,
+        "http://mock-cms:3000/api/sync/queue?action=fetch",
+        json={"job": {"shortcode": "FETCH_ME"}},
+        status=200,
+    )
+    api = _make_api(tmp_path)
+    job = api.fetch_job_from_queue()
+    assert job["shortcode"] == "FETCH_ME"
+
+@responses.activate
+def test_update_job_status(tmp_path: Path):
+    responses.add(
+        responses.PATCH,
+        "http://mock-cms:3000/api/sync/queue",
+        json={"success": True},
+        status=200,
+    )
+    api = _make_api(tmp_path)
+    res = api.update_job_status("job-id-123", "ERROR", "Something broke")
+    assert res["success"] is True

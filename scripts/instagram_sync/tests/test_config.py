@@ -1,43 +1,46 @@
-"""Tests for config.py — SyncConfig defaults and env overrides."""
+"""Tests for config.py — Centralized configuration parsing."""
 
 import os
 from pathlib import Path
+from unittest.mock import patch
 from scripts.instagram_sync.config import SyncConfig
 
 
+@patch.dict(os.environ, {}, clear=True)
 def test_defaults():
-    """Default values are sensible."""
+    """Default values are set when env vars are missing."""
     config = SyncConfig()
-    assert config.cms_base_url.startswith("http")
-    assert config.dry_run is False
-    assert config.dlq_max_retries == 3
-    assert config.min_delay_seconds == 60
-    assert config.max_delay_seconds == 300
+    
+    assert config.cms_base_url == "http://localhost:3000"
+    assert config.default_event_type == "uncategorized"
+    assert config.min_delay_seconds == 1
+    assert config.max_delay_seconds == 2
     assert config.posts_per_session == 12
 
 
-def test_env_overrides(monkeypatch):
-    """Environment variables override defaults."""
-    monkeypatch.setenv("CMS_BASE_URL", "http://custom:8080")
-    monkeypatch.setenv("DLQ_MAX_RETRIES", "5")
-    monkeypatch.setenv("MIN_DELAY_SECONDS", "10")
-
-    # Re-create config to pick up env (dataclass fields read os.getenv at class definition time,
-    # so we need to pass them explicitly for test)
+def test_env_overrides():
+    """Environment variables or explicit kwargs override defaults."""
     config = SyncConfig(
-        cms_base_url=os.getenv("CMS_BASE_URL", "http://localhost:3000"),
-        dlq_max_retries=int(os.getenv("DLQ_MAX_RETRIES", "3")),
-        min_delay_seconds=int(os.getenv("MIN_DELAY_SECONDS", "60")),
+        cms_base_url="http://custom:1234",
+        ig_cookie_file="/custom/cookie",
+        ig_target_profile="custom_profile",
+        min_delay_seconds=10,
+        posts_per_session=20
     )
-    assert config.cms_base_url == "http://custom:8080"
-    assert config.dlq_max_retries == 5
+    assert config.cms_base_url == "http://custom:1234"
+    assert config.ig_cookie_file == "/custom/cookie"
+    assert config.ig_target_profile == "custom_profile"
     assert config.min_delay_seconds == 10
+    assert config.posts_per_session == 20
 
 
 def test_paths_are_path_objects():
-    """All directory configs are Path objects."""
-    config = SyncConfig()
+    """Ensure directory configs are pathlib.Path objects."""
+    config = SyncConfig(
+        cms_base_url="http://localhost",
+        ig_cookie_file="test.cookie",
+        ig_target_profile="test",
+    )
     assert isinstance(config.download_dir, Path)
     assert isinstance(config.checkpoint_dir, Path)
     assert isinstance(config.log_dir, Path)
-    assert isinstance(config.dlq_dir, Path)

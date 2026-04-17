@@ -42,9 +42,7 @@ def tmp_config(tmp_path: Path) -> SyncConfig:
         download_dir=tmp_path / "downloads",
         checkpoint_dir=tmp_path / "state",
         log_dir=tmp_path / "logs",
-        dlq_dir=tmp_path / "dlq",
         dry_run=False,
-        dlq_max_retries=3,
     )
 
 
@@ -91,6 +89,47 @@ def make_post(tmp_path: Path):
             is_video=is_video or num_videos > 0,
             hashtags=hashtags or [],
         )
+
+    return _make
+
+
+@pytest.fixture
+def make_raw_job():
+    """Factory fixture to create RawInstagramPost dictionary matching API GET."""
+    import json
+    from datetime import datetime, timezone
+
+    def _make(
+        shortcode="TEST123",
+        caption="Test Caption\nSome body text",
+        num_photos=1,
+        num_videos=0,
+        profile_name="test_profile",
+        source_type="post",
+    ):
+        media_urls = []
+        media_types = []
+
+        for i in range(num_photos):
+            media_urls.append(f"/uploads/mock-photo-{i}.jpg")
+            media_types.append("image")
+
+        for i in range(num_videos):
+            media_urls.append(f"/uploads/mock-video-{i}.mp4")
+            media_types.append("video")
+
+        return {
+            "id": "cuid1234",
+            "shortcode": shortcode,
+            "profileName": profile_name,
+            "sourceType": source_type,
+            "rawCaption": caption,
+            "mediaUrls": json.dumps(media_urls),
+            "mediaTypes": json.dumps(media_types),
+            "status": "PROCESSING",
+            "retryCount": 0,
+            "createdAt": datetime.now(timezone.utc).isoformat()
+        }
 
     return _make
 

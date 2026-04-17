@@ -1,138 +1,92 @@
-"""Tests for entrypoint.py — process_single_post logic with mocked deps."""
+"""Tests for entrypoint.py — the orchestrator of the ETL pipeline."""
 
-import responses
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-from scripts.instagram_sync.config import SyncConfig
-from scripts.instagram_sync.uploader import MindraCMSAPI, CMSApiError
-from scripts.instagram_sync.checkpoint import CheckpointManager
-from scripts.instagram_sync.dead_letter import DeadLetterQueue
-from scripts.instagram_sync.entrypoint import process_single_post
-from scripts.instagram_sync.models import PageResponse
+from unittest.mock import patch, MagicMock
+from scripts.instagram_sync.entrypoint import run_extractor, run_transformer
+from scripts.instagram_sync.downloader import InstagramRateLimitError
+from scripts.instagram_sync.uploader import CMSApiError
 
 
-def _make_deps(tmp_path: Path, dry_run: bool = False):
-    """Create all dependencies for process_single_post."""
-    config = SyncConfig(
-        cms_base_url="http://mock:3000",
-        download_dir=tmp_path / "dl",
-        checkpoint_dir=tmp_path / "state",
-        log_dir=tmp_path / "logs",
-        dlq_dir=tmp_path / "dlq",
-        dry_run=dry_run,
-    )
-    api = MindraCMSAPI(config)
-    checkpoint = CheckpointManager(config.checkpoint_dir, "test", "daily")
-    dlq = DeadLetterQueue(config.dlq_dir, max_retries=3)
-    return api, checkpoint, dlq
+@patch("scripts.instagram_sync.entrypoint.IGDownloader")
+@patch("scripts.instagram_sync.entrypoint.MindraCMSAPI")
+@patch("scripts.instagram_sync.entrypoint.CheckpointManager")
+def test_run_extractor_success(mock_ckpt, mock_api_class, mock_dl_class, tmp_config, make_post):
+    """Test standard extractor flow."""
+    dl = mock_dl_class.return_value
+    api = mock_api_class.return_value
+    ckpt = mock_ckpt.return_value
+    ckpt.get_known_shortcodes.return_value = set()
+    ckpt.is_processed.return_value = False
+
+    post = make_post(shortcode="EXTRACT", num_photos=1)
+    dl.fetch_profile_posts.return_value = [post]
+    api.upload_media.return_value = "/uploads/test.jpg"
+    
+    # CMS existing check returns False
+    api.check_shortcode_exists.return_value = False
+
+    run_extractor("test_profile", tmp_config)
+
+    dl.fetch_profile_posts.assert_called_once()
+    api.upload_media.assert_called_once()
+    api.push_raw_post.assert_called_once()
+    assert "EXTRACT" in api.push_raw_post.call_args[0][0]["shortcode"]
+    ckpt.mark_processed.assert_called_with("EXTRACT")
 
 
-@responses.activate
-def test_process_single_post_success(tmp_path: Path, make_post):
-    """Full successful pipeline: check → upload → map → create."""
-    api, checkpoint, dlq = _make_deps(tmp_path)
-    post = make_post(shortcode="OK1", caption="Success\nBody text")
+@patch("scripts.instagram_sync.entrypoint.IGDownloader")
+@patch("scripts.instagram_sync.entrypoint.MindraCMSAPI")
+@patch("scripts.instagram_sync.entrypoint.CheckpointManager")
+def test_run_extractor_rate_limit(mock_ckpt, mock_api_class, mock_dl_class, tmp_config, make_post):
+    """If IGDownloader throws RateLimit, it catches gracefully without data loss."""
+    dl = mock_dl_class.return_value
+    api = mock_api_class.return_value
+    ckpt = mock_ckpt.return_value
 
-    # Mock CMS responses
-    responses.add(responses.GET, "http://mock:3000/api/sync/check-shortcode",
-                  json={"exists": False}, status=200)
-    responses.add(responses.POST, "http://mock:3000/api/sync/upload",
-                  json={"url": "/uploads/mock.jpg"}, status=200)
-    responses.add(responses.POST, "http://mock:3000/api/sync/pages",
-                  json={"id": "p1", "slug": "success-1234", "title": "Success"}, status=201)
+    dl.fetch_profile_posts.side_effect = InstagramRateLimitError("Blocked")
 
-    result = process_single_post(post, api, checkpoint, dlq)
-
-    assert result is True
-    assert checkpoint.is_processed("OK1")
-    assert len(dlq.list_entries()) == 0
+    run_extractor("test_profile", tmp_config)
+    
+    api.push_raw_post.assert_not_called()
+    ckpt.finalize.assert_called()
 
 
-@responses.activate
-def test_process_single_post_skip_exists(tmp_path: Path, make_post):
-    """CMS reports shortcode exists → skip, no creation."""
-    api, checkpoint, dlq = _make_deps(tmp_path)
-    post = make_post(shortcode="EXISTING")
+@patch("scripts.instagram_sync.entrypoint.MindraCMSAPI")
+@patch("scripts.instagram_sync.entrypoint.map_job")
+def test_run_transformer_success(mock_map_job, mock_api_class, tmp_config, make_raw_job):
+    """Transformer reads a job, maps it, creates CMS page, and marks COMPLETED."""
+    api = mock_api_class.return_value
+    job = make_raw_job(shortcode="DBJOB")
+    
+    # We yield a job once, then None to simulate empty queue
+    api.fetch_job_from_queue.side_effect = [job, None]
+    
+    mock_page_state = MagicMock()
+    mock_map_job.return_value = mock_page_state
+    
+    mock_result = MagicMock()
+    mock_result.title = "Mapped Page"
+    mock_result.slug = "mapped-page"
+    api.create_page.return_value = mock_result
 
-    responses.add(responses.GET, "http://mock:3000/api/sync/check-shortcode",
-                  json={"exists": True, "id": "old-page"}, status=200)
+    run_transformer(tmp_config)
 
-    result = process_single_post(post, api, checkpoint, dlq)
-
-    assert result is False
-    assert checkpoint.is_processed("EXISTING")  # marked as processed
-
-
-def test_process_single_post_skip_checkpoint(tmp_path: Path, make_post):
-    """Post already in checkpoint → skip without HTTP."""
-    api, checkpoint, dlq = _make_deps(tmp_path)
-    post = make_post(shortcode="CHECKPOINTED")
-
-    checkpoint.mark_processed("CHECKPOINTED")
-
-    result = process_single_post(post, api, checkpoint, dlq)
-
-    assert result is False
-    # No HTTP calls made (no responses registered, would fail if tried)
+    mock_map_job.assert_called_once_with(job)
+    api.create_page.assert_called_once_with(mock_page_state)
+    api.update_job_status.assert_called_once_with("cuid1234", "COMPLETED")
 
 
-@responses.activate
-def test_process_single_post_upload_fail(tmp_path: Path, make_post):
-    """Upload failure → post goes to DLQ, not created."""
-    api, checkpoint, dlq = _make_deps(tmp_path)
-    post = make_post(shortcode="UPLOAD_FAIL")
+@patch("scripts.instagram_sync.entrypoint.MindraCMSAPI")
+@patch("scripts.instagram_sync.entrypoint.map_job")
+def test_run_transformer_llm_failure(mock_map_job, mock_api_class, tmp_config, make_raw_job):
+    """If mapping (LLM) fails, the job must be set to ERROR status."""
+    api = mock_api_class.return_value
+    job = make_raw_job(shortcode="LLMFAIL")
+    api.fetch_job_from_queue.side_effect = [job, None]
+    
+    # Simulate OpenRouter error inside mapping
+    mock_map_job.side_effect = Exception("OpenRouter 502 Bad Gateway")
 
-    responses.add(responses.GET, "http://mock:3000/api/sync/check-shortcode",
-                  json={"exists": False}, status=200)
-    # Upload fails 3 times (retry exhausted)
-    for _ in range(3):
-        responses.add(responses.POST, "http://mock:3000/api/sync/upload",
-                      json={"error": "fail"}, status=500)
+    run_transformer(tmp_config)
 
-    result = process_single_post(post, api, checkpoint, dlq)
-
-    assert result is False
-    entries = dlq.list_entries()
-    assert len(entries) == 1
-    assert entries[0].shortcode == "UPLOAD_FAIL"
-    assert entries[0].pipeline_stage == "upload"
-
-
-@responses.activate
-def test_process_single_post_create_fail(tmp_path: Path, make_post):
-    """Upload succeeds, but page creation fails → DLQ."""
-    api, checkpoint, dlq = _make_deps(tmp_path)
-    post = make_post(shortcode="CREATE_FAIL")
-
-    responses.add(responses.GET, "http://mock:3000/api/sync/check-shortcode",
-                  json={"exists": False}, status=200)
-    responses.add(responses.POST, "http://mock:3000/api/sync/upload",
-                  json={"url": "/uploads/ok.jpg"}, status=200)
-    # Create fails 3 times
-    for _ in range(3):
-        responses.add(responses.POST, "http://mock:3000/api/sync/pages",
-                      json={"error": "fail"}, status=500)
-
-    result = process_single_post(post, api, checkpoint, dlq)
-
-    assert result is False
-    entries = dlq.list_entries()
-    assert len(entries) == 1
-    assert entries[0].pipeline_stage == "create"
-
-
-def test_dlq_exhaustion_skip(tmp_path: Path, make_post):
-    """Post with exhausted retries in DLQ → skipped."""
-    api, checkpoint, dlq = _make_deps(tmp_path)
-    dlq_dir = tmp_path / "dlq"
-    dlq = DeadLetterQueue(dlq_dir, max_retries=1)
-
-    post = make_post(shortcode="EXHAUSTED")
-    # Add to DLQ and exhaust retries
-    dlq.add("EXHAUSTED", "p", "post", RuntimeError("1"), "upload")
-    dlq.add("EXHAUSTED", "p", "post", RuntimeError("2"), "upload")
-
-    result = process_single_post(post, api, checkpoint=None, dlq=dlq)
-
-    assert result is False
+    api.create_page.assert_not_called()
+    api.update_job_status.assert_called_once_with("cuid1234", "ERROR", "OpenRouter 502 Bad Gateway")

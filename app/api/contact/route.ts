@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,46 +14,82 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+        
+        let dbSaved = false;
+        let emailSent = false;
 
-        // Create transporter
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: parseInt(process.env.SMTP_PORT || '587'),
-            secure: false, // true for 465, false for other ports
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
-            },
-        });
+        // 1. Dual-Fallback: Try saving to Prisma first
+        try {
+            await prisma.bookingRequest.create({
+                data: {
+                    name,
+                    contact,
+                    message: message || null,
+                    eventType: eventType || null,
+                    date: date || null,
+                }
+            });
+            dbSaved = true;
+        } catch (error) {
+            console.error('Error saving to DB (Prisma Fallback Triggered):', error);
+        }
 
-        // Email content
-        const mailOptions = {
-            from: process.env.SMTP_USER,
-            to: process.env.RECIPIENT_EMAIL,
-            subject: `New Contact Form Submission from ${name}`,
-            html: `
-        <h2>New Contact Form Submission</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Contact:</strong> ${contact}</p>
-        ${eventType ? `<p><strong>Event Type:</strong> ${eventType}</p>` : ''}
-        ${date ? `<p><strong>Date:</strong> ${date}</p>` : ''}
-        ${message ? `<p><strong>Message:</strong></p><p>${message.replace(/\n/g, '<br>')}</p>` : ''}
-        <hr>
-        <p><small>Sent from Mindra Website Contact Form</small></p>
-      `,
-        };
+        // 2. Try sending Email
+        try {
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: parseInt(process.env.SMTP_PORT || '587'),
+                secure: false, // true for 465, false for other ports
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS,
+                },
+            });
 
-        // Send email
-        await transporter.sendMail(mailOptions);
+            const mailOptions = {
+                from: process.env.SMTP_USER,
+                to: process.env.RECIPIENT_EMAIL,
+                subject: `New Contact Form Submission from ${name}`,
+                html: `
+                    <h2>New Contact Form Submission</h2>
+                    <p><strong>Name:</strong> ${name}</p>
+                    <p><strong>Contact:</strong> ${contact}</p>
+                    ${eventType ? `<p><strong>Event Type:</strong> ${eventType}</p>` : ''}
+                    ${date ? `<p><strong>Date:</strong> ${date}</p>` : ''}
+                    ${message ? `<p><strong>Message:</strong></p><p>${message.replace(/\n/g, '<br>')}</p>` : ''}
+                    <hr>
+                    <p><small>Sent from Mindra Website Contact Form</small></p>
+                `,
+            };
 
+            await transporter.sendMail(mailOptions);
+            emailSent = true;
+        } catch (error) {
+            console.error('Error sending email (DLQ Fallback Triggered):', error);
+        }
+
+        // 3. Evaluation
+        if (!dbSaved && !emailSent) {
+            // Both fallbacks failed
+            console.error('CRITICAL: Both DB and Email failed for lead:', name, contact);
+            return NextResponse.json(
+                { error: 'Failed to process request entirely' },
+                { status: 500 }
+            );
+        }
+
+        // Return 200 if at least one method succeeded
         return NextResponse.json(
-            { message: 'Email sent successfully' },
+            { 
+                message: 'Request processed successfully', 
+                status: { db: dbSaved, email: emailSent }
+            },
             { status: 200 }
         );
     } catch (error) {
-        console.error('Error sending email:', error);
+        console.error('Fatal Route Error:', error);
         return NextResponse.json(
-            { error: 'Failed to send email' },
+            { error: 'Internal Server Error' },
             { status: 500 }
         );
     }

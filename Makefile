@@ -66,20 +66,13 @@ sync-login: ## Extract session cookie from Chrome
 	@echo "\n✅ Successfully saved cookie for $(LOGIN) to scripts/instagram_sync/session.cookie!"
 
 sync-healthcheck: check-profile ## Safely test the pipeline without affecting CMS
-	python3 -m scripts.instagram_sync.entrypoint --mode daily --profile $(PROFILE) --dry-run --limit 3
+	python3 -m scripts.instagram_sync.entrypoint --mode fetch --profile $(PROFILE) --limit 3 --dry-run
 
-sync-daily: check-profile ## Download and sync new posts
-	python3 -m scripts.instagram_sync.entrypoint --mode daily --profile $(PROFILE)
+sync-fetch: check-profile ## Step 1: Download new posts and enqueue to DB
+	python3 -m scripts.instagram_sync.entrypoint --mode fetch --profile $(PROFILE)
 
-sync-initial: check-profile ## Download all history (slow)
-	python3 -m scripts.instagram_sync.entrypoint --mode initial --profile $(PROFILE)
-
-sync-retry-dlq: check-profile ## Retry any failed uploads from DLQ
-	python3 -m scripts.instagram_sync.entrypoint --retry-dlq --profile $(PROFILE)
-
-sync-single: ## Sync exactly one shortcode
-	@if [ -z "$(SHORTCODE)" ]; then echo "\n❌ Error: SHORTCODE is required.\n💡 Usage: make sync-single SHORTCODE=xyz\n"; exit 1; fi
-	python3 -m scripts.instagram_sync.entrypoint --shortcode $(SHORTCODE)
+sync-process: ## Step 2: Process posts from Queue via LLM
+	python3 -m scripts.instagram_sync.entrypoint --mode process-queue
 
 sync-tests: ## Run Pytest suite
 	python3 -m pytest scripts/instagram_sync/tests/ -v --tb=short

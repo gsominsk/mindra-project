@@ -129,9 +129,12 @@ class MindraCMSAPI:
             logger.info(f"[DRY RUN] Would upload: {file_path.name}")
             return f"/uploads/dry-run-{file_path.stem}{file_path.suffix}"
 
+        # Read into memory so retries inside _request() don't hit EOF
         with open(file_path, "rb") as f:
-            files = {"file": (file_path.name, f)}
-            resp = self._request("POST", "/api/sync/upload", files=files)
+            file_data = f.read()
+            
+        files = {"file": (file_path.name, file_data)}
+        resp = self._request("POST", "/api/sync/upload", files=files)
 
         result = UploadResponse.model_validate(resp.json())
         logger.info(f"Uploaded {file_path.name} → {result.url}")
@@ -155,3 +158,25 @@ class MindraCMSAPI:
         result = PageResponse.model_validate(resp.json())
         logger.info(f"Created page: {result.title} (slug: {result.slug})")
         return result
+
+    def push_raw_post(self, payload: dict) -> dict:
+        """Add a raw post to the queue (PENDING state)."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would push raw post to queue: {payload.get('shortcode')}")
+            return {"success": True}
+        resp = self._request("POST", "/api/sync/queue", json=payload)
+        return resp.json()
+
+    def fetch_job_from_queue(self) -> Optional[dict]:
+        """Fetch 1 pending post for processing (locks it as PROCESSING)."""
+        resp = self._request("GET", "/api/sync/queue?action=fetch")
+        return resp.json().get("job")
+
+    def update_job_status(self, job_id: str, status: str, error_message: Optional[str] = None) -> dict:
+        """Update job status to COMPLETED or ERROR."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would update job {job_id} to {status}")
+            return {"success": True}
+        payload = {"id": job_id, "status": status, "errorMessage": error_message}
+        resp = self._request("PATCH", "/api/sync/queue", json=payload)
+        return resp.json()
