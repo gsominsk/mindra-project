@@ -19,6 +19,7 @@ import sys
 import logging
 import json
 import os
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv(usecwd=True))
@@ -99,6 +100,7 @@ def run_extractor(profile: str, config: SyncConfig) -> None:
                 "rawCaption": post.caption,
                 "mediaUrls": uploaded_urls,
                 "mediaTypes": post.media_types,
+                "createdAt": datetime.fromtimestamp(post.timestamp, tz=timezone.utc).isoformat()
             }
 
             try:

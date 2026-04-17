@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { shortcode, profileName, sourceType, rawCaption, mediaUrls, mediaTypes } = body;
+    const { shortcode, profileName, sourceType, rawCaption, mediaUrls, mediaTypes, createdAt } = body;
 
     const post = await prisma.rawInstagramPost.upsert({
       where: { shortcode },
@@ -58,6 +58,7 @@ export async function POST(request: Request) {
         mediaTypes: JSON.stringify(mediaTypes),
         status: 'PENDING',
         lastError: null,
+        ...(createdAt ? { createdAt: new Date(createdAt) } : {})
       },
       create: {
         shortcode,
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
         mediaUrls: JSON.stringify(mediaUrls),
         mediaTypes: JSON.stringify(mediaTypes),
         status: 'PENDING',
+        ...(createdAt ? { createdAt: new Date(createdAt) } : {})
       }
     });
 

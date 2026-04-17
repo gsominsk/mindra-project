@@ -75,7 +75,7 @@ class PageState(BaseModel):
     igSourceType: Optional[Literal["post", "highlight", "reel"]] = None
     igProfileName: Optional[str] = None
     createdAt: Optional[str] = None
-
+    isPublished: bool = False
 
 class UploadResponse(BaseModel):
     """Response from POST /api/upload."""
