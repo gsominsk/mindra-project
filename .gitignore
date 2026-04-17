@@ -62,3 +62,4 @@ scripts/instagram_sync/tests/__pycache__/
 scripts/instagram_sync/__pycache__/
 .pytest_cache/
 __pycache__/
+public/uploads/*
