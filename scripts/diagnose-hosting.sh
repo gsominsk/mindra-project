@@ -209,6 +209,84 @@ else
   echo "not running inside a project root (no package.json/docker-compose.yml here)"
 fi
 
+# --- 13. Beget / CloudLinux specifics (for auto-detect in deploy script) ---
+
+hr "13. BEGET / CLOUDLINUX SPECIFICS"
+
+# 13a. CloudLinux Node.js Selector — primary auto-restart mechanism on Beget
+echo "13a. CloudLinux Node.js Selector:"
+echo "  ~/.cl.selector/ exists: $([ -d "$HOME/.cl.selector" ] && echo "YES — Selector available" || echo "no")"
+[ -d "$HOME/.cl.selector" ] && ls -la "$HOME/.cl.selector/" 2>/dev/null | head -10 | sed 's/^/    /'
+echo "  selectorctl: $(have selectorctl)"
+echo "  /opt/alt/ (CloudLinux alt installations):"
+ls -d /opt/alt/*/ 2>/dev/null | head -10 | sed 's/^/    /' || echo "    not found"
+echo "  /usr/local/cpanel: $([ -d /usr/local/cpanel ] && echo "YES — cPanel-based" || echo "no")"
+
+# 13b. LVE RAM limit — critical for build (OOM check)
+echo ""
+echo "13b. LVE RAM limit (critical for npm run build):"
+echo "  /proc/user_beancounters:"
+cat /proc/user_beancounters 2>/dev/null | head -5 | sed 's/^/    /' || echo "    not readable (need root — expected on shared)"
+echo "  /proc/self/cgroup (find our cgroup):"
+cat /proc/self/cgroup 2>/dev/null | head -3 | sed 's/^/    /' || echo "    not available"
+echo "  cgroup memory limit:"
+CGROUP_MEM="$(cat /proc/self/cgroup 2>/dev/null | grep memory | head -1 | cut -d: -f3)"
+if [ -n "$CGROUP_MEM" ] && [ -f "/sys/fs/cgroup/memory${CGROUP_MEM}/memory.limit_in_bytes" ]; then
+  LIMIT_BYTES="$(cat "/sys/fs/cgroup/memory${CGROUP_MEM}/memory.limit_in_bytes" 2>/dev/null)"
+  LIMIT_MB=$(( LIMIT_BYTES / 1024 / 1024 ))
+  echo "    limit: ${LIMIT_MB} MB"
+elif [ -f /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
+  LIMIT_BYTES="$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null)"
+  LIMIT_MB=$(( LIMIT_BYTES / 1024 / 1024 ))
+  echo "    limit: ${LIMIT_MB} MB (root cgroup)"
+else
+  echo "    cannot read cgroup memory limit (may need root)"
+fi
+echo "  free -m (available RAM in our LVE):"
+free -m 2>/dev/null | head -3 | sed 's/^/    /'
+
+# 13c. Domain(s) bound to this account (Beget: ~/www/<domain>/)
+echo ""
+echo "13c. Domains bound to account:"
+echo "  ~/www/ contents:"
+ls -la "$HOME/www" 2>/dev/null | head -15 | sed 's/^/    /' || echo "    ~/www not found"
+echo "  ~/public/ contents:"
+ls -la "$HOME/public" 2>/dev/null | head -15 | sed 's/^/    /' || echo "    ~/public not found"
+echo "  ~/domains/ contents:"
+ls -la "$HOME/domains" 2>/dev/null | head -15 | sed 's/^/    /' || echo "    ~/domains not found"
+
+# 13d. SSL certificates (Let's Encrypt via panel?)
+echo ""
+echo "13d. SSL certificates:"
+echo "  ~/.system/ssl/:"
+ls -la "$HOME/.system/ssl" 2>/dev/null | head -10 | sed 's/^/    /' || echo "    not found"
+echo "  search for *.crt / fullchain.pem under home (top 5):"
+find "$HOME" -maxdepth 4 \( -name "*.crt" -o -name "fullchain.pem" -o -name "*.pem" \) 2>/dev/null | grep -iE "ssl|cert" | head -5 | sed 's/^/    /' || echo "    none found"
+
+# 13e. .htaccess / Apache config (reverse proxy option)
+echo ""
+echo "13e. .htaccess / Apache config (for reverse proxy :3000):"
+echo "  ~/public/.htaccess: $([ -f "$HOME/public/.htaccess" ] && echo "exists" || echo "no")"
+[ -f "$HOME/public/.htaccess" ] && head -20 "$HOME/public/.htaccess" 2>/dev/null | sed 's/^/    /'
+echo "  ~/www/*/.htaccess:"
+for d in "$HOME/www"/*/; do
+  [ -f "$d/.htaccess" ] && echo "    $d.htaccess:" && head -10 "$d/.htaccess" 2>/dev/null | sed 's/^/      /'
+done 2>/dev/null || echo "    none"
+
+# 13f. Cagefs (user isolation)
+echo ""
+echo "13f. CageFS (user isolation):"
+echo "  ~/.cagefs/ exists: $([ -d "$HOME/.cagefs" ] && echo "YES" || echo "no")"
+[ -d "$HOME/.cagefs" ] && ls -la "$HOME/.cagefs/" 2>/dev/null | head -5 | sed 's/^/    /'
+
+# 13g. Existing Node apps registered in panel (if Selector was used before)
+echo ""
+echo "13g. Existing registered Node apps (Selector):"
+echo "  ~/.cl.selector/apps/ or similar:"
+find "$HOME/.cl.selector" -maxdepth 3 -name "*.json" -o -name "*.conf" 2>/dev/null | head -10 | sed 's/^/    /' || echo "    none"
+echo "  selectorctl --list (if available):"
+selectorctl --list 2>/dev/null | head -10 | sed 's/^/    /' || echo "    selectorctl not available"
+
 # --- done -----------------------------------------------------------------
 
 hr "DONE"
