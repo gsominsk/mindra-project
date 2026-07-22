@@ -37,11 +37,15 @@ export async function POST(request: NextRequest) {
         }
 
         const modelToUse = model || "x-ai/grok-imagine-image-quality";
-        const contentParts: any[] = [{ type: "text", text: prompt }];
+        type ContentPart =
+            | { type: "text"; text: string }
+            | { type: "image_url"; image_url: { url: string } };
+        const contentParts: ContentPart[] = [{ type: "text", text: prompt }];
         const extractedUrls: string[] = [];
 
+        type ReferenceItem = string | { url?: string };
         if (Array.isArray(referenceUrls)) {
-            referenceUrls.slice(0, 2).forEach((item: any) => {
+            referenceUrls.slice(0, 2).forEach((item: ReferenceItem) => {
                 const rawUrl = typeof item === "string" ? item : item?.url;
                 if (rawUrl && typeof rawUrl === "string" && rawUrl.trim()) {
                     let finalUrl = rawUrl.trim();

@@ -18,7 +18,8 @@ import {
   updateSettings,
   ClientDashboardItem,
   ClientSettings,
-  ClientAttachment
+  ClientAttachment,
+  ClientAttachmentHistory
 } from './actions';
 
 function DashboardCarousel({ 
@@ -115,19 +116,7 @@ function VoiceVisualizer({ isActive }: { isActive: boolean }) {
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    if (!isActive) {
-      setVolumes(new Array(24).fill(4));
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      return;
-    }
+    if (!isActive) return;
 
     const initAudio = async () => {
       try {
@@ -153,7 +142,7 @@ function VoiceVisualizer({ isActive }: { isActive: boolean }) {
           if (!analyserRef.current) return;
           analyserRef.current.getByteFrequencyData(dataArray);
           
-          const newVolumes = [];
+          const newVolumes: number[] = [];
           for (let i = 0; i < 24; i++) {
             const binIdx = Math.floor((i / 24) * (bufferLength * 0.5));
             const value = dataArray[binIdx];
@@ -182,6 +171,7 @@ function VoiceVisualizer({ isActive }: { isActive: boolean }) {
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
+      setVolumes(new Array(24).fill(4));
     };
   }, [isActive]);
 
@@ -327,9 +317,10 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
   const [isGeneratingDetail, setIsGeneratingDetail] = useState(false);
 
   // Upload helper: POST file to server endpoint
-  const uploadFile = async (file: File): Promise<string> => {
+  const uploadFile = async (file: File, batchIndex: number = 1): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('batchIndex', String(batchIndex));
     const res = await fetch('/party-prompts/api/upload', { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
@@ -522,11 +513,11 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
       
       try {
         const newList = await createList(formattedDate);
-        const createdAttachments = [];
+        const createdAttachments: ClientAttachment[] = [];
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const serverUrl = await uploadFile(file);
+          const serverUrl = await uploadFile(file, i + 1);
           const shortId = Math.random().toString(36).substring(2, 8);
           const name = `${formattedDate}-${shortId}`;
 
@@ -570,7 +561,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
         const newAttachments: ClientAttachment[] = [];
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const serverUrl = await uploadFile(file);
+          const serverUrl = await uploadFile(file, i + 1);
           const shortId = Math.random().toString(36).substring(2, 8);
           const name = `${dashboardItemName}-${shortId}`;
 
@@ -632,10 +623,10 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
       const dashboardItemName = selectedDashboardList.name;
 
       try {
-        const newAttachments = [];
+        const newAttachments: ClientAttachment[] = [];
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const serverUrl = await uploadFile(file);
+          const serverUrl = await uploadFile(file, i + 1);
           const shortId = Math.random().toString(36).substring(2, 8);
           const name = `${dashboardItemName}-${shortId}`;
 
@@ -655,7 +646,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
           newAttachments.push(att);
         }
 
-        setAttachments(prev => [...(newAttachments as unknown as typeof prev), ...prev]);
+        setAttachments(prev => [...newAttachments, ...prev]);
       } catch (err) {
         logger.error('ATTACHMENTS', 'Failed to upload attachments', err);
       }
@@ -712,12 +703,12 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
     if (!selectedAttachment || files.length === 0) return;
 
     try {
-      const uploadedHistoryItems = [];
+      const uploadedHistoryItems: ClientAttachmentHistory[] = [];
       let lastServerUrl = selectedAttachment.url;
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const serverUrl = await uploadFile(file);
+        const serverUrl = await uploadFile(file, i + 1);
         lastServerUrl = serverUrl;
 
         const histEntry = await addHistoryEntry({
@@ -741,7 +732,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
             activeHistoryId: uploadedHistoryItems[uploadedHistoryItems.length - 1].id,
             referenceUrl: undefined,
             referenceUrls: undefined,
-            history: [...(reversedNewHist as unknown as typeof currentHistory), ...currentHistory]
+            history: [...reversedNewHist, ...currentHistory]
           };
         }
         return item;

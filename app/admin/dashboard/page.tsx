@@ -18,6 +18,8 @@ interface DashboardPage {
     blocks: { mediaUrl: string | null, text: string | null }[];
 }
 
+type EventType = 'business' | 'wedding' | 'party' | 'uncategorized';
+
 const VideoPreview = ({ src }: { src: string }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isHovered, setIsHovered] = useState(false);
@@ -175,7 +177,7 @@ export default function DashboardPage() {
                             const previewImage = page.blocks.find(b => b.mediaUrl)?.mediaUrl;
                             const previewText = page.blocks.find(b => b.text)?.text?.substring(0, 80);
 
-                            const handleQuickPublish = async (type: string) => {
+                            const handleQuickPublish = async (type: EventType) => {
                                 try {
                                     const res = await fetch(`/api/admin/pages/${page.id}`, {
                                         method: 'PATCH',
@@ -183,7 +185,7 @@ export default function DashboardPage() {
                                         body: JSON.stringify({ eventType: type, isPublished: true })
                                     });
                                     if (res.ok) {
-                                        setPages(prev => prev.map(p => p.id === page.id ? { ...p, eventType: type as any, isPublished: true } : p));
+                                        setPages(prev => prev.map(p => p.id === page.id ? { ...p, eventType: type, isPublished: true } : p));
                                     } else {
                                         throw new Error("Failed to update page");
                                     }
@@ -243,7 +245,7 @@ export default function DashboardPage() {
                                             </div>
                                             {previewText && (
                                                 <p className="text-sm text-gray-500 mb-4 line-clamp-3 italic">
-                                                    "{previewText}{previewText.length === 80 ? '...' : ''}"
+                                                    &ldquo;{previewText}{previewText.length === 80 ? '...' : ''}&rdquo;
                                                 </p>
                                             )}
                                         </div>

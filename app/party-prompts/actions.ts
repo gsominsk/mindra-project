@@ -147,12 +147,14 @@ export async function getSettings(): Promise<ClientSettings> {
       autoSendTranscription: settings.autoSendTranscription,
       hideTextPrompt: settings.hideTextPrompt,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Database error';
+    const stack = err instanceof Error ? err.stack : undefined;
     appendServerLog({
       level: 'error',
       namespace: 'SERVER_FETCH',
-      msg: `Error in getSettings: ${err?.message || 'Database error'}`,
-      data: { stack: err?.stack }
+      msg: `Error in getSettings: ${message}`,
+      data: { stack }
     });
     return {
       openRouterKey: '',
@@ -194,12 +196,14 @@ export async function getLists(): Promise<ClientDashboardItem[]> {
       orderBy: { order: 'asc' },
     });
     return lists.map(mapList);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Database error';
+    const stack = err instanceof Error ? err.stack : undefined;
     appendServerLog({
       level: 'error',
       namespace: 'SERVER_FETCH',
-      msg: `Error in getLists: ${err?.message || 'Database error'}`,
-      data: { stack: err?.stack }
+      msg: `Error in getLists: ${message}`,
+      data: { stack }
     });
     return [];
   }

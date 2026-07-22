@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { generateTimestampedFilename } from "@/lib/uploads";
 
 /**
  * Internal sync endpoint — NOT protected by middleware.
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
 
         const ext = path.extname(file.name) || ".bin";
-        const filename = `${randomUUID()}${ext}`;
+        const filename = generateTimestampedFilename(ext, randomUUID().slice(0, 8));
 
         const uploadDir = path.join(process.cwd(), "public", "uploads");
         await mkdir(uploadDir, { recursive: true });

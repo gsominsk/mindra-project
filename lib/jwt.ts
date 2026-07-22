@@ -6,7 +6,14 @@ export interface JwtPayload {
     sub: string;
     iat: number;
     exp: number;
-    [key: string]: any;
+    role?: string;
+    [key: string]: unknown;
+}
+
+export interface JwtClaims {
+    sub: string;
+    role?: string;
+    [key: string]: unknown;
 }
 
 function base64UrlEncode(str: string): string {
@@ -25,7 +32,7 @@ function base64UrlDecode(str: string): string {
     return Buffer.from(base64, 'base64').toString('utf8');
 }
 
-export function createSignedJwt(payload: Omit<JwtPayload, 'iat' | 'exp'>, expiresInSeconds: number = 86400): string {
+export function createSignedJwt(payload: JwtClaims, expiresInSeconds: number = 86400): string {
     const header = { alg: 'HS256', typ: 'JWT' };
     const now = Math.floor(Date.now() / 1000);
     const fullPayload: JwtPayload = {
@@ -70,7 +77,7 @@ export function verifySignedJwt(token: string): JwtPayload | null {
         }
 
         return payload;
-    } catch (err) {
+    } catch {
         return null;
     }
 }

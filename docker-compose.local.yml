@@ -1,0 +1,43 @@
+# Local Docker verification — self-contained compose file.
+# Run with: docker compose -f docker-compose.local.yml up --build
+#
+# This intentionally does NOT use override merge semantics, because the
+# production docker-compose.yml has a /root/media mount that only exists
+# on the server and cannot be dropped via merge. Instead this file fully
+# describes the app service for local verification.
+#
+# What this verifies (closest to a fresh prod deploy):
+#   1. Dockerfile builds (prisma generate + next build)
+#   2. Entrypoint runs `prisma migrate deploy` against an empty sqlite volume
+#   3. /party-prompts* routes respond after login
+#   4. No engine-load or no-such-table errors in logs
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mindra-website-local
+    restart: "no"
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads-data:/app/public/uploads
+      - sqlite-data:/app/prisma
+      - party-logs:/app/logs/party_prompts
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_MEDIA_URL=/media
+      - DATABASE_URL=file:/app/prisma/dev.db
+    env_file:
+      - .env
+    networks:
+      - mindra-network-local
+
+networks:
+  mindra-network-local:
+    driver: bridge
+
+volumes:
+  uploads-data:
+  sqlite-data:
+  party-logs:

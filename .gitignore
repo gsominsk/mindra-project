@@ -61,6 +61,7 @@ lib/jwt.d.ts
 # SQLite database (runtime data, not source code)
 prisma/*.db
 prisma/*.db-journal
+prisma/*.db.bak*
 
 # Instagram sync pipeline
 scripts/instagram_sync/downloads/

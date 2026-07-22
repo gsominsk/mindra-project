@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
+import { generateTimestampedFilename } from "@/lib/uploads";
 import { checkAndCleanupUploadQuota } from "@/lib/quota_cleanup";
 import { appendServerLog } from "@/lib/logger_server";
 
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
 
         const formData = await request.formData();
         const file = formData.get("file") as File;
+        const batchIndex = (formData.get("batchIndex") as string) || "1";
 
         if (!file) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
 
         const buffer = Buffer.from(await file.arrayBuffer());
         const safeExt = ext || ".jpg";
-        const filename = `${uuidv4()}${safeExt}`;
+        const filename = generateTimestampedFilename(safeExt, batchIndex, "party-prompts");
         const uploadDir = path.join(process.cwd(), "public/uploads/party-prompts");
         
         // Ensure directory exists

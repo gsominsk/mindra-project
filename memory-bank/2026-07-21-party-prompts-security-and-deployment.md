@@ -3,6 +3,8 @@
 > **ИНСТРУКЦИЯ:** Данный документ описывает задачу по обеспечению безопасности (авторизация, хранение OpenRouter API ключа, безопасность загрузки файлов) и деплою раздела `/party-prompts`.
 > **ВАЖНОЕ ПРАВИЛО:** На этапе аудита и сверки код проекта НЕ изменяется. Изменения вносятся только после полной итеративной сверки фактического состояния.
 
+> **🟢 АКТУАЛЬНЫЙ СТЕЙТ (2026-07-22):** Билд зелёный (`npm run build` → EXIT 0). Docker-деплой РАБОЧИЙ — образ собирается, контейнер стартует, Prisma-миграции применяются автоматически, все роуты `/party-prompts*` отвечают корректно после авторизации. Локальная Docker-проверка пройдена (раздел 19.3). `env.example` — полный шаблон (14 переменных, путь A — один `.env` на сервере, без формального `.env.production`). **Фаза 7 ВЫПОЛНЕНА и подтверждена ручным UI-тестом (раздел 20.10):** catch-all роут `/uploads/[...path]` отдаёт динамические файлы сразу без рестарта + именование `${YYYYMMDDHHmmss}-${batchIndex}${ext}` (сортируемо, нумеруется в пакете). Path-traversal защита, whitelist расширений, `Cache-Control: immutable`. **Осталось:** закоммитить Фазы 6+7, подготовить `.env` на сервере (6.2) и задеплоить (6.3). Краткая сводка готовности — в разделе 10.2.
+
 ---
 
 ## 1. Требования к реализации
@@ -28,7 +30,7 @@
 - **Сохранение данных (Volumes):**
   - Подключение persistent volume для SQLite БД (`/app/prisma/dev.db` или путь БД).
   - Подключение persistent volume для файлов `/app/public/uploads`.
-- **Переменные окружения:** Формирование `.env.production` со всеми необходимыми ключами и паролями.
+- **Переменные окружения:** На сервере формируется один `.env` из шаблона `env.example` (путь A — формальный `.env.production` не нужен, т.к. `.env*` в gitignore, а compose использует `env_file: .env`).
 - **Сборка и запускаемость:** Проверка Dockerfile и `docker-compose.yml`.
 
 ---
@@ -386,10 +388,26 @@
 - **Сессии:** При валидном входе клиенту выдается Signed JWT Cookie (`admin_session`) с флагами `HttpOnly`, `SameSite=Strict`, `Max-Age=86400`.
 
 ### 10.2. Финальная Сводка Готовности Компонентов Система
-- **Маршруты защиты Middleware ([middleware.ts](file:///Users/sominskijgeorgij/sandbox/mindra-website/middleware.ts)):** Защищены роуты `/admin`, `/api/admin`, `/api/upload`, `/party-prompts`, `/party-prompts/api/*`.
-- **Проксирование OpenRouter ([app/party-prompts/api/generate/route.ts](file:///Users/sominskijgeorgij/sandbox/mindra-website/app/party-prompts/api/generate/route.ts)):** API-ключ `openRouterKey` хранится в SQLite БД (`PromptSettings`) и используется только на сервере.
-- **Единое логирование ([lib/logger_server.ts](file:///Users/sominskijgeorgij/sandbox/mindra-website/lib/logger_server.ts)):** Файлы `.jsonl` сохраняются в `logs/party_prompts/` с лимитом **30 МБ** и авто-ротацией.
-- **Дисковая квота ([lib/quota_cleanup.ts](file:///Users/sominskijgeorgij/sandbox/mindra-website/lib/quota_cleanup.ts)):** Папка `public/uploads/party-prompts/` ограничена **800 МБ** с автоматической каскадной очисткой старых списков и их файлов из SQLite БД.
+
+> **Обновлено 2026-07-22.** Добавлены строки со статусом сборки и Docker-деплоя (см. раздел 19).
+
+| Компонент | Статус | Детали |
+|---|---|---|
+| Middleware (защита роутов) | ✅ Готово | `/admin`, `/api/admin`, `/api/upload`, `/party-prompts`, `/party-prompts/api/*`. Редирект 307 на `/login?from=...` (проверено в Docker). |
+| Проксирование OpenRouter | ✅ Готово | API-ключ `openRouterKey` в SQLite (`PromptSettings`), используется только на сервере. Валидация 400 `Prompt is required` проверена в Docker. |
+| Единое логирование | ✅ Готово | `.jsonl` в `logs/party_prompts/`, лимит 30 МБ, авто-ротация. |
+| Дисковая квота | ✅ Готово | `public/uploads/party-prompts/` ограничена 800 МБ, каскадная очистка. |
+| Сборка `npm run build` | ✅ Зелёный | EXIT 0, 27 страниц, `/party-prompts*` → `ƒ` (Dynamic, SSR). См. 19.1. |
+| Prisma-миграции | ✅ Готово | `20260722000001_add_instagram_and_party_prompts_models` — 7 таблиц. `migrate status`: up to date. См. 19.2 / 6.1a. |
+| Dockerfile (образ) | ✅ Рабочий | `node:20-slim`, `prisma generate` + `openssl` в builder/runner, весь `@prisma/` scope. См. 19.2 / 6.1b–6.1c. |
+| Docker entrypoint | ✅ Рабочий | `docker-entrypoint.sh`: `node prisma/build/index.js migrate deploy` → `exec server.js`. См. 19.2 / 6.1d. |
+| `docker-compose.local.yml` | ✅ Проверено | Локальная проверка: все HTTP-роуты отвечают, БД-запросы идут, ошибок `no such table`/engine нет. См. 19.3 / 6.1g. |
+| Отдача динамических файлов (`/uploads/*`) | ✅ Готово + ручной тест | Catch-all API-роут `app/uploads/[...path]/route.ts` (Фаза 7.1, раздел 20.10). Новые файлы отдаются сразу без рестарта. Ручной UI-тест подтверждён 2026-07-22. |
+| Именование файлов | ✅ Готово + ручной тест | `${YYYYMMDDHHmmss}-${batchIndex}${ext}` (Фаза 7.2, раздел 20.10). Сортируемо, нумеруется в пакете. |
+| Прод `.env` на сервере | ⏳ Пенд. | Путь A: `env.example` → `.env` на сервере (14 переменных). Сменить пароли с `admin` на сильные, ротировать OpenRouter ключ (см. 19.5), подставить прод-SMTP. `DATABASE_URL`/`NEXT_PUBLIC_MEDIA_URL` уже в `docker-compose.yml` `environment:`. |
+| Деплой на сервер | ⏳ Пенд. | После подготовки `.env` (6.2 → 6.3). |
+
+**Финальный статус (2026-07-22):** Билд зелёный. Docker-образ собирается и запускается. Миграции применяются автоматически. Все роуты `/party-prompts*` отвечают корректно после авторизации. **Деплой-цепочка готова** — осталось подготовить `.env` на сервере (путь A, шаблон `env.example`) и задеплоить.
 ---
 
 ## 11. Анализ Сборки Продакшн-Бандла (`npm run build`) и Оптимизация Динамических Роутов
@@ -526,6 +544,425 @@
 - **Поддержка MIME-типов:** PNG → `image/png`, WebP → `image/webp`, остальные → `image/jpeg`.
 - **Обратная совместимость:** Внешние публичные URL (`https://...`) передаются в OpenRouter напрямую без изменений.
 - **Тесты:** Все **34 из 34** автоматических проверок пройдены со 100% успехом.
+
+---
+
+## 19. Аудит Production-Сборки и Docker-Деплоя (Pre-Deploy Verification) ⚠️
+
+> **Дата аудита:** 2026-07-22
+> **Цель:** Подготовить Party Prompts к деплою — проверить, что `npm run build` проходит, а Docker-образ собирается и запускается корректно (локально и на сервере).
+
+### 19.1. Исправление ошибок ESLint и TypeScript (npm run build) ✅
+
+Первый прогон `npm run build` падал на 8 ESLint-ошибках и 4 TypeScript-ошибках. Все исправлены:
+
+**Наш код (Party Prompts + серверная инфра):**
+- `lib/jwt.js`, `lib/jwt.d.ts` — удалены артефакты компиляции CommonJS (не импортируются, ломали линтер `no-require-imports`).
+- `lib/jwt.ts` — `any → unknown` в `JwtPayload`; выделен интерфейс `JwtClaims` (Omit с индексной сигнатурой `[key: string]: unknown` терял поле `sub`); убран unused `err` в catch.
+- `app/party-prompts/actions.ts` — 2 × `catch (err: any) → catch (err: unknown)` с безопасным `instanceof Error`.
+- `app/party-prompts/api/generate/route.ts` — `any[] → ContentPart[]` (union-тип для text/image_url партов); `(item: any) → ReferenceItem`.
+- `app/party-prompts/PartyPromptsApp.tsx` — `set-state-in-effect` fix (сброс `setVolumes` перенесён из тела `useEffect` в cleanup-функцию); 4 × нетипизированных массива `= []` получили явные типы (`number[]`, `ClientAttachment[]`, `ClientAttachmentHistory[]`); убраны 2 каста `as unknown as`.
+- `types/speech-recognition.d.ts` — НОВЫЙ файл с ambient-типами Web Speech API (TS 5.9 не содержит `SpeechRecognition` в `lib.dom.d.ts`).
+
+**Существующий код (не Party Prompts, но блокировал билд):**
+- `app/admin/dashboard/page.tsx` — `type as any → EventType` (выделен union-тип `'business' | 'wedding' | 'party' | 'uncategorized'`); `"` → `&ldquo;`/`&rdquo;` (2 неэкранированные кавычки, `no-unescaped-entities`).
+
+**Конфигурация:**
+- `tsconfig.json` — `exclude` дополнен `memory-bank`, `logs`, `prompts-party-front` (TS пытался компилировать архивы документации Vue и исходную SPA-заготовку).
+
+**Итог билда:** `npm run build` → **EXIT CODE: 0**. Все 27 страниц сгенерированы. Роуты `/party-prompts*` собраны как `ƒ` (Dynamic, SSR):
+- `ƒ /party-prompts`, `ƒ /party-prompts/dashboard` (131 B / 178 kB First Load)
+- `ƒ /party-prompts/api/{generate,log,upload}` (174 B)
+- `ƒ Middleware` (34 kB)
+
+### 19.2. 🚨 КРИТИЧНО: Нерабочая Prisma-цепочка в Docker-сборке ⚠️
+
+> **Аудит 2026-07-22 (уточнённый).** Первоначальная оценка (раздел 19.2 редакции 1) описывала только отсутствующие миграции и предлагала вариант B (build-time migrate), который фактически нерабочий. Ниже — полная цепочка блокеров, выявленных при перепроверке.
+
+**Симптомы при запуске контейнера (и локально, и на сервере — одинаково):**
+1. Приложение падает при первой попытке обратиться к БД: ошибка загрузки Prisma query engine (несовпадение платформы).
+2. Даже если engine загрузится: `no such table: PromptList` (и аналогичные для `PromptAttachment`, `PromptAttachmentHistory`, `PromptSettings`).
+
+**Корневые причины — 4 разорванных звена цепочки:**
+
+| # | Звено | Факт из кода | Последствие |
+|---|---|---|---|
+| 1 | Migration-файлы для Party Prompts | `prisma/migrations/` содержит только 2 файла от 2025-12 (`20251205231255_init`, `20251206003045_init`), создающие `EventPage` и `Block`. 4 новые модели **не имеют migration-файлов**. Они попали в локальную `dev.db` через `prisma db push` (не создаёт миграций). | `prisma migrate deploy` в контейнере не создаст таблицы Party Prompts — миграций для них не существует. |
+| 2 | `prisma generate` в Docker-сборке | В `package.json` **нет `postinstall` хука**. Prisma Client сгенерирован локально на macOS: `node_modules/.prisma/client/libquery_engine-darwin-arm64.dylib.node`. Dockerfile использует `node:20-alpine` (Linux musl). | macOS-движок не запустится в Alpine-контейнере. `output: 'standalone'` копирует оттрассенные файлы, но неверный engine-бинарник → падение при загрузке клиента. |
+| 3 | Системные библиотеки Alpine | Runner-стадия не устанавливает `openssl`. Prisma query engine на musl-Alpine требует `openssl`. | Engine падает при загрузке даже если бинарник правильной платформы. |
+| 4 | Prisma CLI + `migrate deploy` в runner | С `output: 'standalone'` Next.js копирует только оттрассенные файлы — Prisma CLI (нужный для миграций) не попадает в образ. `prisma/` (schema + migrations) тоже не копируется. | Нечем и не к чему применять миграции при старте контейнера. |
+
+Volume `sqlite-data:/app/prisma` (в `docker-compose.yml`) монтируется **пустым** и перекрывает любые файлы образа по этому пути — поэтому build-time миграции (вариант B из редакции 1) **нерабочие и вычёркиваются**.
+
+**Архитектурный вердикт:** Сам подход (SQLite + Prisma + Docker standalone + entrypoint-миграции) **корректен** для одно-контейнерного деплоя (`container_name: mindra-website`, реплик нет → гонки миграций нет). Но реализация в текущем Dockerfile разорвана в 4 местах. Также: вариант B (build-time migrate) **вычёркивается** — мигрированная БД внутри слоя образа перекрывается пустым volume при запуске.
+
+**План исправления — полная цепочка (Фаза 6.1, реализованная 2026-07-22):**
+
+> **Статус: ✅ ВСЕ ПУНКТЫ ВЫПОЛНЕНЫ И ПРОВЕРЕНЫ.** Ниже актуализированный план с уточнениями, выявленными при реализации (3 отклонения от изначального плана отмечены ⚠️).
+
+- [x] **6.1a. Сгенерировать migration-файл локально и закоммитить (ПЕРВЫЙ обязательный шаг).**
+  ⚠️ **Уточнение:** `prisma migrate dev` в этой ситуации detectит drift (таблицы в БД есть, миграции в истории нет) и предложит reset, что **потеряет тестовые данные**. Правильный путь — двухшаговый:
+  1. `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "file:./prisma/shadow.db" --script > prisma/migrations/<timestamp>_add_instagram_and_party_prompts_models/migration.sql` — генерирует SQL без трогания БД.
+  2. `npx prisma migrate resolve --applied <timestamp>_add_instagram_and_party_prompts_models` — отмечает миграцию как применённую в `_prisma_migrations` (таблицы уже существуют через `db push`).
+  **Результат:** миграция `20260722000001_add_instagram_and_party_prompts_models` создана (7 таблиц: 4 Party Prompts + `SyncJob`, `BookingRequest`, `RawInstagramPost` + поля `igProfileName`/`igShortcode`/`igSourceType`/`igSyncedAt` на `EventPage`), `dev.db` сохранён, `migrate status` → `Database schema is up to date!`.
+
+- [x] **6.1b. Dockerfile builder-стадия: `openssl` + `prisma generate`.**
+  ⚠️ **Уточнение:** `openssl` нужен **и в builder, и в runner** — `next build` инициализирует Prisma Client при SSR-генерации статических страниц, и без `libssl.so` падает с `PrismaClientInitializationError: libssl.so.1.1: cannot open shared object file`. Изначальный план добавлял `openssl` только в runner.
+  **Реализовано:** `apt-get install -y --no-install-recommends openssl` в обеих стадиях; `npx prisma generate` после `COPY . .` генерирует Linux-debian engine для `node:20-slim`.
+
+- [x] **6.1c. Dockerfile runner-стадия: `node:20-slim` + `openssl` + копирование Prisma-артефактов.**
+  ⚠️ **Уточнение:** копировать нужно **весь** `node_modules/@prisma/` scope, а не только `@prisma/engines`. Prisma CLI лениво требует цепочку пакетов: `@prisma/engines` → `@prisma/debug` → `@prisma/get-platform` → `@prisma/fetch-engine`. Копирование только `engines` даёт `Cannot find module '@prisma/debug'`, затем `@prisma/get-platform'` и т.д. (whack-a-mole).
+  **Решение:** принято на вопросе пользователя — `node:20-slim` (Debian) вместо `node:20-alpine`. Prisma на Debian стабильнее, `openssl` ставится чисто.
+  **Реализовано (4 COPY):**
+  - `COPY --from=builder /app/prisma ./prisma` (schema.prisma + migrations/).
+  - `COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma` (сгенерированный клиент + linux engine).
+  - `COPY --from=builder /app/node_modules/prisma ./node_modules/prisma` (Prisma CLI).
+  - `COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma` (весь scope ~45 MB — engine binaries + внутренние пакеты).
+
+- [x] **6.1d. Entrypoint-скрипт: миграции перед стартом приложения.**
+  ⚠️ **Уточнение:** `npx prisma migrate deploy` **не работает** в standalone-выходе — `output: 'standalone'` не копирует `node_modules/.bin/` symlinks, которые нужны `npx` для поиска CLI. Ошибка: `sh: 1: prisma: not found`.
+  **Решение:** прямой вызов через node — `node node_modules/prisma/build/index.js migrate deploy`. Точка входа определена через `node_modules/prisma/package.json` → `"bin": { "prisma": "build/index.js" }`.
+  **Реализовано:** `docker-entrypoint.sh` с `set -e`, логированием, прямым вызовом Prisma CLI, `exec "$@"` для передачи CMD. `COPY --chmod=0755 docker-entrypoint.sh`, `ENTRYPOINT ["./docker-entrypoint.sh"]`, `CMD ["node", "server.js"]`.
+
+- [x] **6.1e. Проверить `DATABASE_URL`.**
+  ⚠️ **Уточнение:** `env_file: .env` в compose **переопределяет** `ENV DATABASE_URL` из Dockerfile. В `.env` стоит `file:./dev.db` (для локального dev-сервера), что в контейнере даст `/app/dev.db` — **не на volume**. Решение: добавить `DATABASE_URL=file:/app/prisma/dev.db` в `environment:` блок `docker-compose.yml` (приоритет `environment` > `env_file`). `env.example` обновлён с пояснением различия локального и Docker-путей.
+
+**Порядок выполнения обязателен:** 6.1a → 6.1b → 6.1c → 6.1d → 6.1e. Пропуск любого звена ломает цепочку. **Все звенья восстановлены и проверены.**
+
+### 19.3. Локальная проверка через Docker (ВЫПОЛНЕНА 2026-07-22) ✅
+
+> **Реализация:** вместо `docker-compose.override.yml` (merge-семантика compose не позволяет убрать прод-only mount `/root/media`) создан **самостоятельный** `docker-compose.local.yml`, полностью описывающий сервис для локальной проверки.
+
+- [x] **6.1f.** Создан `docker-compose.local.yml` (порт 3000:3000, без `/root/media`, anonymous volumes для чистовой имитации прода).
+- [x] **6.1g.** Сборка и полный HTTP-тест пройдены:
+  - `docker compose -f docker-compose.local.yml build` → `app Built` ✅
+  - Entrypoint: `3 migrations found` → `No pending migrations to apply` ✅
+  - `Ready in 166ms` ✅
+  - `/` → 200, `/login` → 200 ✅
+  - `/party-prompts` без сессии → 307 → `/login?from=/party-prompts` ✅
+  - `/party-prompts/dashboard` без сессии → 307 → `/login` ✅
+  - POST `/api/auth/login` (admin/admin) → `{"success":true}` + cookie `admin_session` ✅
+  - JWT payload: `{"sub":"admin","role":"admin",...}` — правка `JwtClaims` (раздел 19.1) работает в проде ✅
+  - `/party-prompts/dashboard` с cookie → **HTTP 200** ✅
+  - `/party-prompts` с cookie → **HTTP 200** ✅
+  - `api/generate` без prompt → 400 `Prompt is required` (валидация, не 500) ✅
+  - Логи: `SELECT FROM PromptList/Settings/Attachment/AttachmentHistory` — все 4 таблицы отвечают ✅
+  - Ошибок `no such table` / engine load failure — **нет** ✅
+
+### 19.3.1. Побочная находка: повреждение Docker Desktop (устранено)
+
+В процессе сборки Docker Desktop упал с `input/output error` на `metadata_v2.db` — следствие того, что диск Mac был заполнен на 100% во время записи buildkit-метаданных. **Не блокер для кода** — инфраструктурная проблема.
+**Решение:** пользователь освободил 15-20 GB; после перезапуска Docker daemon сам восстановился; `docker buildx prune -f` очистил 2.66 GB повреждённого кэша. Образы/контейнеры/volumes других проектов (qdrant, ai_trader, interview_app и др.) **сохранены** — полный Factory Reset не потребовался.
+
+### 19.4. Фаза 6 — Обновлённый чек-лист деплоя
+
+| Задача | Статус | Комментарий |
+|---|---|---|
+| 6.1a. Migration для Party Prompts + Instagram | ✅ Готово | `20260722000001_add_instagram_and_party_prompts_models`, 7 таблиц. |
+| 6.1b. Dockerfile builder: `openssl` + `prisma generate` | ✅ Готово | `openssl` в обеих стадиях (уточнение). |
+| 6.1c. Dockerfile runner: slim + Prisma артефакты | ✅ Готово | `node:20-slim`, весь `@prisma/` scope (уточнение). |
+| 6.1d. Entrypoint: `migrate deploy` | ✅ Готово | Прямой вызов `node prisma/build/index.js` (уточнение). |
+| 6.1e. `DATABASE_URL` | ✅ Готово | В `environment` compose (приоритет над `.env`). |
+| 6.1f. `docker-compose.local.yml` | ✅ Готово | Самостоятельный файл, не override. |
+| 6.1g. Локальная Docker-проверка | ✅ Готово | Все HTTP-проверки пройдены. |
+| 6.2. Подготовить `.env` на сервере | ⏳ | Путь A: `env.example` → `.env` на сервере. 14 переменных, сменить пароли с `admin`, ротировать OpenRouter ключ, прод-SMTP. Формальный `.env.production` не нужен (`.env*` в gitignore, compose использует `env_file: .env`). |
+| 6.3. Деплой на сервер | ⏳ | После подготовки `.env` (6.2). |
+| 7.1. Catch-all API-роут `/uploads/[...path]/route.ts` | ✅ Готово | Отдача динамически загруженных файлов в standalone. См. раздел 20.10. |
+| 7.2. Именование файлов `${YYYYMMDDHHmmss}-${index}${ext}` | ✅ Готово | Сортировка + пакетная нумерация. См. раздел 20.10. |
+| 7.3. Проверить Фазу 7 в Docker | ✅ Готово | Загрузка → 200 без рестарта, path traversal → 403. См. раздел 20.10. |
+| 7.4. Обновить memory-bank | ✅ Готово | Раздел 20.10 + 10.2 + шапка + 19.4 обновлены. |
+
+### 19.5. ⚠️ Ротация OpenRouter API ключа (Security)
+
+При верификации данных перед коммитом обнаружено: `prisma/dev.db` содержал **реальный OpenRouter ключ** `sk-or-v1-eca90...4e38` в таблице `PromptSettings`. БД убрана из git-отслеживания (`prisma/*.db` в `.gitignore`), в историю ключ не попал. Однако ключ фигурировал в локальных сессиях разработки — **рекомендуется ротация** на https://openrouter.ai/keys перед прод-деплоем.
+
+---
+
+## 20. 🚨 КРИТИЧНО: Отдача динамически загруженных файлов в Next.js standalone + именование файлов ⚠️
+
+> **Аудит 2026-07-22.** Выявлено при локальной Docker-проверке (раздел 19.3): загруженная через дашборд картинка сохраняется на диск, но отдаётся HTTP 404 до перезапуска контейнера. Это блокер для UX — пользователь загружает файл и не видит превью.
+
+### 20.1. Симптом
+
+| Действие | Результат |
+|---|---|
+| Загрузка картинки через `/party-prompts` дашборд | Файл сохраняется в `/app/public/uploads/party-prompts/<uuid>.png` ✅ |
+| БД-запись (`PromptAttachment.imageUrl`) | Обновляется ✅ (`INSERT`/`UPDATE` видны в логах) |
+| HTTP `GET /uploads/party-prompts/<uuid>.png` сразу после загрузки | **HTTP 404** 🔴 |
+| HTTP `GET /uploads/party-prompts/<старый-uuid>.png` (был при старте контейнера) | **HTTP 200** ✅ |
+| HTTP `GET /uploads/party-prompts/<новый-uuid>.png` после `docker restart` | **HTTP 200** ✅ (начинает отдаваться) |
+| HTTP `GET /file.svg` (в образе, не в volume) | **HTTP 200** ✅ |
+
+**Вывод:** файлы, существовавшие на момент старта `server.js`, отдаются. Файлы, добавленные **после** старта, — 404 до рестарта.
+
+### 20.2. Корневая причина
+
+**Next.js standalone-сервер не наблюдает за файловой системой `public/`.** В dev-режиме (`next dev`) file-watcher подхватывает новые файлы. В production standalone — нет: список обслуживаемых public-файлов фиксируется при старте.
+
+Подтверждено официальной документацией Next.js ([output config](https://nextjs.org/docs/app/api-reference/config/next-config-js/output)):
+
+> «This minimal server does not copy the `public` or `.next/static` folders by default as these should ideally be handled by a CDN instead, although these folders can be copied to the `standalone/public` and `standalone/.next/static` folders manually, after which `server.js` file will serve these automatically.»
+
+Ключевое слово: **«serve these automatically»** — про файлы, скопированные **до** старта. Про динамически добавляемые файлы — ничего. Архитектурно standalone рассчитан на CDN для статики, не на локальную файловую систему с runtime-записью.
+
+### 20.3. Затронутые роуты (все используют один паттерн)
+
+| Роут | Назначение | Имя файла | Путь сохранения |
+|---|---|---|---|
+| `app/api/upload/route.ts` | Универсальная загрузка (Instagram ETL) | `${uuidv4()}${ext}` | `public/uploads/` |
+| `app/api/sync/upload/route.ts` | ig-sync sidecar загрузка | `${randomUUID()}${ext}` | `public/uploads/` |
+| `app/party-prompts/api/upload/route.ts` | Party Prompts дашборд | `${uuidv4()}${safeExt}` | `public/uploads/party-prompts/` |
+
+**Все 3 роута страдают от 20.2** — возвращают URL `/uploads/...`, который в standalone отдаёт 404 для файлов, загруженных после старта.
+
+### 20.4. Архитектурные варианты решения
+
+#### Вариант A — Catch-all API-роут `/uploads/[...path]/route.ts`
+
+Создать route handler, который перехватывает все `/uploads/*` запросы, читает файл с диска и отдаёт с правильным Content-Type.
+
+**Плюсы:**
+- Работает в **dev и Docker standalone** одинаково — без ветвления кода.
+- Файлы проверяются на каждый запрос — кэш не мешает.
+- Полный контроль: content-type, cache-заголовки, security (path traversal, auth при желании).
+- Не требует Nginx — работает в single-container деплое.
+
+**Минусы:**
+- Каждый запрос идёт через Node.js (а не sendfile из ядра) — выше CPU на больших файлах. Для нашего случая (картинки до 20 МБ, низкий трафик) — пренебрежимо.
+- Нужно аккуратно обработать path traversal (`../`), MIME-типы, 404.
+
+**Security-чек-лист:**
+- Резолвить путь через `path.resolve` + проверять, что результат внутри `UPLOADS_DIR` (иначе 403).
+- Whitelist расширений (jpg/png/webp/gif/mp4) — или отдавать 403 на остальное.
+- Content-Type по расширению (map), `Content-Disposition: inline` для изображений.
+- Cache-Control: `public, max-age=31536000, immutable` (файлы immutable — UUID-имена не перезаписываются).
+
+#### Вариант B — Кастомный `server.js` с express.static
+
+Обернуть standalone `server.js` в express-приложение, которое отдаёт `/uploads/` через `express.static` до проброса в Next.
+
+**Плюсы:** использует sendfile, эффективнее для больших файлов.
+**Минусы:** ломает «чистый» standalone (нужно поддерживать кастомный server.js), усложняет Dockerfile, расходится с архитектурой Next.js.
+
+#### Вариант C — Nginx/reverse-proxy на сервере
+
+Nginx отдаёт `/uploads/` напрямую с диска, минуя Next.js.
+
+**Плюсы:** максимально эффективно, не нагружает Node.js.
+**Минусы:** работает **только на сервере**, не решает локальную Docker-проверку. Усложняет деплой (нужен Nginx-конфиг). Для single-container деплоя избыточно.
+
+#### Вариант D — `next/image` с кастомным loader
+
+**Не помогает.** `next/image` оптимизирует изображения, но URL всё равно указывает на `/uploads/...`, который standalone не отдаёт. Проблема та же.
+
+#### Вариант E — Хранить загрузки вне `public/`, отдавать только через API
+
+Файлы в `/app/uploads/` (не в `public/`), отдача только через API-роут (вариант A, но путь хранения вне public).
+
+**Плюсы:** чёткое разделение — `public/` только для бандл-тайм ассетов, runtime-загрузки отдельно. Нет ложного ощущения, что `public/` обслуживает динамические файлы.
+**Минусы:** нужно мигрировать существующие файлы и обновить 3 upload-роута + БД-записи (URL менять с `/uploads/` на `/api/files/` или 保持ать `/uploads/` как API-путь).
+
+#### Вариант F — `outputFileTracingIncludes`
+
+Конфиг Next.js для включения файлов в trace. **Не применимо** — это про build-time файлы, не про runtime-загружаемые.
+
+### 20.5. Рекомендация
+
+**Вариант A** (catch-all API-роут `/uploads/[...path]/route.ts`) — как единственное решение, работающее в dev и Docker standalone без ветвления кода и без Nginx.
+
+Вариант E концептуально чище, но требует миграции существующих файлов и БД-записей — дороже при том же результате. Вариант A переиспользует существующие URL `/uploads/...` в БД — **миграция не нужна**.
+
+Вариант C (Nginx) — опциональная будущая оптимизация для прода, но не заменяет A (нужен для локальной работы).
+
+### 20.6. Именование файлов — текущее состояние и проблема
+
+**Текущий паттерн (все 3 роута):** `${uuidv4()}${ext}` — полностью случайные UUID.
+
+| Свойство | UUID | Желаемое |
+|---|---|---|
+| Уникальность | ✅ Гарантирована | ✅ |
+| Сортируемость по времени | 🔴 Нет | ✅ Нужна |
+| Читаемость (debug, fs listing) | 🔴 Нет (16 случайных hex) | ✅ Нужна |
+| Пакетная нумерация | 🔴 Нет | ✅ Нужна (файлы грузятся пачками) |
+| Коллизии при параллельной записи | ✅ Невозможны | ✅ |
+
+**Контекст пакетной загрузки** (из `PartyPromptsApp.tsx:510-575`):
+- Фронт загружает файлы **последовательно** в `for`-цикле (`await uploadFile(file)`).
+- Имя **attachment** в БД уже содержит дату: `${formattedDate}-${shortId}` где `formattedDate = DD-MM-YYYY-HH:MM`, `shortId = Math.random().toString(36).substring(2,8)`.
+- Имя **файла на диске** — UUID, без даты и без нумерации.
+
+### 20.7. Рекомендация по именованию
+
+**Формат:** `${YYYYMMDDHHmmss}-${index}${ext}` (с fallback на UUID-суффикс при коллизии).
+
+Примеры:
+```
+20260722165201-1.png    # первый файл пакета 16:52:01
+20260722165201-2.png    # второй файл того же пакета
+20260722165201-3.png    # третий
+20260722165215-1.jpg    # следующий пакет 16:52:15
+```
+
+**Свойства:**
+- ✅ Сортируемость: `ls` сразу показывает хронологию.
+- ✅ Пакетная нумерация: индекс внутри пакета (передаётся с фронта или инкрементится на сервере).
+- ✅ Читаемость: дата видна в имени.
+- ✅ Уникальность: секунда + индекс достаточно уникальны; при коллизии (одна секунда, два пакета) — UUID-суффикс.
+- ✅ ISO-совместимость: `YYYYMMDDHHmmss` сортируется лексикографически = хронологически.
+
+**Реализация:**
+- Фронт передаёт `formData.append('batchIndex', String(i + 1))` в цикле (уже есть `for (let i = 0; i < files.length; i++)`).
+- Сервер: `const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14); const filename = \`${ts}-${batchIndex}${ext}\`;`
+- Коллизия-защита: если файл существует — добавить `-${randomUUID().slice(0,8)}` перед расширением.
+
+### 20.8. План реализации (Фаза 7)
+
+> **Порядок обязателен:** 7.1a → 7.1b → 7.2a-d → 7.3 → 7.4. Пропуск 7.1 ломает отдачу, пропуск 7.2 ломает именование.
+> **Утверждён пользователем 2026-07-22** (после exploration frontend + backend patterns + доки Next.js route handlers).
+
+#### 20.8.1. Контекст из exploration (для исполнителя)
+
+**Frontend (`app/party-prompts/PartyPromptsApp.tsx`):**
+- `uploadFile = async (file: File): Promise<string>` (строки 320-327) — один параметр, возвращает `data.url`.
+- 5 call-сайтов, все `await uploadFile(file)`:
+  - **Строка 519** (`handleDropOnAddNew`): в цикле `for (let i = 0; i < files.length; i++)` → `batchIndex = i + 1`
+  - **Строка 563** (`handleDropOnItem`): в цикле → `batchIndex = i + 1`
+  - **Строка 628** (`handleDropOnAttachments`): в цикле → `batchIndex = i + 1`
+  - **Строка 661** (`handleDropOnSingleAttachment`): **без цикла**, `files[0]` → `batchIndex = 1` (default)
+  - **Строка 710** (`processUploadedFiles`): в цикле → `batchIndex = i + 1`
+- Никаких существующих `batch`/`batchId`/`batchIndex` идентификаторов в коде нет — имя безопасно.
+
+**Backend patterns:**
+- Middleware (`middleware.ts:36-45`) matcher: `/admin`, `/admin/:path*`, `/api/admin/:path*`, `/api/upload/:path*`, `/party-prompts`, `/party-prompts/:path*`. **`/uploads` НЕ в matcher** → catch-all будет публичным (как текущее static-поведение — фиксим функциональность, не безопасность).
+- В проекте **нет** catch-all роутов — `app/uploads/[...path]/route.ts` будет первым.
+- Next.js 15 async params: `{ params }: { params: Promise<{ path: string[] }> }` → `const { path: segments } = await params`.
+- Next.js 15: GET-хендлеры динамические по умолчанию (v15.0.0 change) — то что нужно для чтения с диска на каждый запрос.
+- Route handlers имеют приоритет над `public/` static files — стандартное поведение Next.js.
+- **Нет** path-traversal защиты нигде в коде — нужно создать в `lib/uploads.ts`.
+- `ALLOWED_EXTENSIONS`/`ALLOWED_MIME_TYPES` только в `app/party-prompts/api/upload/route.ts` (валидация загрузки, не отдача). В `app/api/upload/route.ts` и `app/api/sync/upload/route.ts` валидации **нет** — out of scope.
+- `lib/` конвенция: snake_case, server-only `_server` suffix (cf. `logger_server.ts`, `quota_cleanup.ts`). `lib/uploads.ts` подходит.
+
+#### 20.8.2. Изменения (детальный план)
+
+- [x] **7.1a. Создать `lib/uploads.ts`** (новый shared-хелпер). ✅ ВЫПОЛНЕНО 2026-07-22.
+  - `UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads')` — единый источник путя.
+  - `MIME_MAP: Record<string, string>` — расширение → Content-Type (jpg/jpeg/png/webp/gif/avif/heic/heif/mp4).
+  - `SERVE_ALLOWED_EXTENSIONS: Set<string>` — whitelist для отдачи (jpg/jpeg/png/webp/gif/avif/heic/heif/mp4).
+  - `resolveUploadPath(segments: string[])` — path-traversal-безопасное разрешение: `path.resolve(UPLOADS_DIR, ...segments)` + проверка `startsWith(UPLOADS_DIR)`. Возвращает `{ ok: true, fullPath } | { ok: false, status, error }`.
+  - `generateTimestampedFilename(ext: string, uniquePart: string)` — `${YYYYMMDDHHmmss}-${uniquePart}${ext}` с collision-check через `fs.existsSync`: если занят, добавить `-${randomUUID().slice(0,8)}` перед расширением.
+
+- [x] **7.1b. Создать `app/uploads/[...path]/route.ts`** (новый catch-all GET). ✅ ВЫПОЛНЕНО 2026-07-22.
+  ```ts
+  export const dynamic = 'force-dynamic';   // читать с диска на каждый запрос
+  export const runtime = 'nodejs';          // fs требует Node.js runtime
+
+  export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> }
+  ) {
+    const { path: segments } = await params;
+    // 1. resolveUploadPath(segments) → 403 при traversal
+    // 2. ext whitelist → 400 при недопустимом
+    // 3. readFile → 404 при отсутствии
+    // 4. Response(buffer, { headers: { 'Content-Type': MIME_MAP[ext], 'Cache-Control': 'public, max-age=31536000, immutable' } })
+  }
+  ```
+  Статусы: 200 (файл), 400 (расширение), 403 (traversal), 404 (нет файла). `Cache-Control: immutable` — файлы не перезаписываются (имена уникальны).
+
+- [x] **7.2a. Изменить `app/party-prompts/api/upload/route.ts`** (именование + batchIndex). ✅ ВЫПОЛНЕНО 2026-07-22.
+  - Импорт `generateTimestampedFilename` из `@/lib/uploads`.
+  - Чтение `batchIndex` из formData (fallback `'1'`): `const batchIndex = (formData.get('batchIndex') as string) || '1';`
+  - Замена `const filename = \`${uuidv4()}${safeExt}\`` → `const filename = generateTimestampedFilename(safeExt, batchIndex)`.
+  - `ALLOWED_EXTENSIONS`/`ALLOWED_MIME_TYPES` остаются inline (валидация загрузки — отдельная забота от отдачи; out of scope).
+
+- [x] **7.2b. Изменить `app/api/upload/route.ts`** (именование). ✅ ВЫПОЛНЕНО 2026-07-22.
+  - Импорт `generateTimestampedFilename` из `@/lib/uploads`, `randomUUID` из `crypto`.
+  - Замена `\`${uuidv4()}${path.extname(file.name)}\`` → `generateTimestampedFilename(ext, randomUUID().slice(0,8))`.
+  - Валидацию не добавляю (out of scope — отдельно).
+
+- [x] **7.2c. Изменить `app/api/sync/upload/route.ts`** (именование). ✅ ВЫПОЛНЕНО 2026-07-22.
+  - Импорт `generateTimestampedFilename` из `@/lib/uploads`.
+  - Замена `\`${randomUUID()}${ext}\`` → `generateTimestampedFilename(ext, randomUUID().slice(0,8))`.
+
+- [x] **7.2d. Изменить `app/party-prompts/PartyPromptsApp.tsx`** (передача batchIndex). ✅ ВЫПОЛНЕНО 2026-07-22.
+  - `uploadFile = async (file: File, batchIndex: number = 1): Promise<string>` — второй параметр, `formData.append('batchIndex', String(batchIndex))`.
+  - 4 call-сайта в циклах (строки 519, 563, 628, 710): `await uploadFile(file, i + 1)`.
+  - 1 call-сайт single-file (строка 661): `await uploadFile(file)` (default 1).
+
+- [x] **7.3. Проверить в Docker** (через `docker-compose.local.yml`). ✅ ВЫПОЛНЕНО 2026-07-22.
+  - `docker compose -f docker-compose.local.yml up -d --build`
+  - Войти admin/admin, открыть дашборд, загрузить новую картинку → **превью отображается сразу** (HTTP 200 без рестарта).
+  - Проверить имя файла в контейнере: `docker exec ... ls /app/public/uploads/party-prompts/` → формат `YYYYMMDDHHmmss-N.png`.
+  - Path traversal: `curl -i http://localhost:3000/uploads/../../etc/passwd` → **403**.
+  - Несуществующий: `curl -i http://localhost:3000/uploads/party-prompts/nonexistent.png` → **404**.
+  - Старый UUID-файл (из существующей БД-записи): `curl -i http://localhost:3000/uploads/party-prompts/<старый-uuid>.png` → **200** (catch-all отдаёт и старые тоже — миграция БД не нужна).
+  - `npm run build` → EXIT 0 (без ESLint/TS ошибок).
+
+- [x] **7.4. Обновить memory-bank** — отметить 7.1–7.3 как выполненные, обновить раздел 10.2, шапку, финальный статус. ✅ ВЫПОЛНЕНО 2026-07-22.
+
+#### 20.8.3. Итоговое именование файлов
+
+| Роут | Формат | Пример |
+|---|---|---|
+| `party-prompts/api/upload` (пачки) | `${YYYYMMDDHHmmss}-${batchIndex}${ext}` | `20260722165201-1.png`, `20260722165201-2.png` |
+| `api/upload` (по одному) | `${YYYYMMDDHHmmss}-${shortUuid}${ext}` | `20260722165201-a3f9b2c1.png` |
+| `api/sync/upload` (по одному) | `${YYYYMMDDHHmmss}-${shortUuid}${ext}` | `20260722165201-a3f9b2c1.png` |
+| Коллизия (та же секунда + index) | `${YYYYMMDDHHmmss}-${index}-${shortUuid}${ext}` | `20260722165201-1-a3f9b2c1.png` |
+
+#### 20.8.4. Out of scope (future work)
+
+- Добавление валидации в `app/api/upload/route.ts` и `app/api/sync/upload/route.ts` (сейчас принимают любой файл) — отдельная задача безопасности.
+- Auth на catch-all `/uploads` (файлы публичны, как сейчас) — отдельная задача безопасности.
+- Извлечение `ALLOWED_EXTENSIONS` в shared lib — minor DRY-рефактор, не блокер.
+
+#### 20.8.5. Риски
+
+- **TOCTOU race** в collision-check: два параллельных upload с одним timestamp+index могут оба пройти `existsSync` и один перезапишет другой. На нашем фронте загрузки **последовательные** (`await` в `for`-цикле), поэтому race невозможен. Для параллельных upload (будущее) — добавить retry или всегда включать uuid-суффикс.
+- **Производительность**: каждый `/uploads/*` запрос идёт через Node.js `fs.readFile` вместо kernel sendfile. Для картинок до 20 МБ и низкого трафика — пренебрежимо. `Cache-Control: immutable` кэширует на стороне браузера.
+
+### 20.9. Альтернатива «без изменения URL в БД»
+
+Вариант A **не требует** миграции БД: URL в `PromptAttachment.imageUrl` остаётся `/uploads/party-prompts/<file>`. Catch-all роут перехватывает `/uploads/...` (включая подпапку `party-prompts/`) и отдаёт с диска. Существующие записи продолжают работать.
+
+### 20.10. Реализация и верификация (Фаза 7 — ВЫПОЛНЕНА 2026-07-22) ✅
+
+**Создано файлов:**
+- `lib/uploads.ts` — shared-хелпер: `UPLOADS_DIR`, `MIME_MAP` (jpg/jpeg/png/webp/gif/avif/heic/heif/mp4), `SERVE_ALLOWED_EXTENSIONS`, `resolveUploadPath()` (path-traversal защита), `generateTimestampedFilename()` (timestamp + collision-check).
+- `app/uploads/[...path]/route.ts` — catch-all GET, `dynamic = 'force-dynamic'`, `runtime = 'nodejs'`. Статусы: 200/400/403/404. `Cache-Control: public, max-age=31536000, immutable`.
+
+**Изменено файлов:**
+- `app/party-prompts/api/upload/route.ts` — `uuidv4` → `generateTimestampedFilename(safeExt, batchIndex, 'party-prompts')`, чтение `batchIndex` из formData (fallback `'1'`).
+- `app/api/upload/route.ts` — `uuidv4` → `generateTimestampedFilename(ext, randomUUID().slice(0,8))`.
+- `app/api/sync/upload/route.ts` — `randomUUID()` → `generateTimestampedFilename(ext, randomUUID().slice(0,8))`.
+- `app/party-prompts/PartyPromptsApp.tsx` — `uploadFile(file, batchIndex=1)` + `formData.append('batchIndex', ...)`. 4 call-сайта в циклах (519, 563, 628, 710) → `uploadFile(file, i + 1)`; 1 single-file (661) → `uploadFile(file)` (default 1).
+
+**Нюанс реализации (TS-типизация):**
+`new NextResponse(buffer, ...)` падает с TS-ошибкой `Buffer<ArrayBufferLike>` не присваивается к `BodyInit` — известная несовместимость `@types/node` (generic `Buffer`) и `lib.dom` (`BodyInit`). Обёртка в `Uint8Array` тоже не помогает (`Uint8Array<ArrayBufferLike>` та же проблема). Решено cast'ом `buffer as unknown as BodyInit` — в runtime `Buffer` корректно работает как `BodyInit`, проблема только в типах. Альтернатива — понизить `@types/node` или использовать `new Response(buffer)` напрямую, но cast минимально-инвазивен.
+
+**Верификация (Docker, `docker-compose.local.yml`):**
+
+| Проверка | Ожидание | Результат |
+|---|---|---|
+| `npm run build` | EXIT 0 | ✅ EXIT 0, `/uploads/[...path]` собран как `ƒ` (Dynamic) |
+| Логин `admin`/`admin` | `{"success":true}` + cookie | ✅ |
+| Upload #1 (`batchIndex=1`) | URL `/uploads/party-prompts/<ts>-1.png` | ✅ `20260722174021-1.png` |
+| Upload #2 (`batchIndex=2`) | URL `/uploads/party-prompts/<ts>-2.png` | ✅ `20260722174021-2.png` (тот же timestamp) |
+| HTTP на новый файл **без рестарта** | 200 (главный фикс) | ✅ HTTP 200, `image/png`, 70 байт |
+| Старый UUID-файл из volume | 200 (миграция БД не нужна) | ✅ HTTP 200, 321636 байт |
+| Path traversal `/uploads/..%2f..%2fetc%2fpasswd` | 403 | ✅ `{"error":"Traversal denied"}` |
+| Несуществующий файл | 404 | ✅ HTTP 404 |
+| `.svg` (запрещённое расширение) | 400 | ✅ HTTP 400 |
+| `file.svg` (корень public, static) | 200 (не через catch-all) | ✅ HTTP 200 |
+| `Cache-Control` на новом файле | `public, max-age=31536000, immutable` | ✅ |
+| `Content-Type` из `MIME_MAP` | `image/png` | ✅ |
+| **Ручной тест UI (пользователь)** | drag-anddrop загрузка, превью | ✅ «вроде ок» — превью отображается сразу, пакетная загрузка работает |
+
+**Итог:** исходная проблема (404 на свежезагруженные файлы до рестарта) — **решена**. Именование `${YYYYMMDDHHmmss}-${batchIndex}${ext}` — **работает**, файлы сортируемы и нумеруются в пакете. Path-traversal защита — **работает**. Старые UUID-файлы — **продолжают отдаються** (миграция БД не нужна). **Ручной тест UI подтверждён пользователем 2026-07-22.**
+
+Именование (7.2) применяется **только к новым загрузкам** — старые UUID-имена остаются и продолжают отдаваться (catch-all роут не зависит от формата имени).
+
+---
+*Статус аудита: ВЫПОЛНЕН (2026-07-22). Билд зелёный (`npm run build` → EXIT 0). Docker-деплой РАБОЧИЙ — образ собирается, контейнер стартует, миграции применяются, все роуты `/party-prompts*` отвечают корректно после авторизации. `env.example` — полный шаблон (14 переменных). **Фаза 7 ВЫПОЛНЕНА и подтверждена ручным UI-тестом пользователя 2026-07-22:** catch-all роут `/uploads/[...path]` + именование `${YYYYMMDDHHmmss}-${batchIndex}${ext}` — e2e проверено в Docker (раздел 20.10). Осталось: закоммитить Фазы 6+7, подготовить `.env` на сервере (путь A, 6.2) и задеплоить (6.3).*
 
 
 
