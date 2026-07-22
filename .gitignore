@@ -50,6 +50,18 @@ public/media/
 
 /app/generated/prisma
 
+/memory-bank/archive/
+/prompts-party-front/
+
+# Party Prompts runtime artifacts
+logs/
+lib/jwt.js
+lib/jwt.d.ts
+
+# SQLite database (runtime data, not source code)
+prisma/*.db
+prisma/*.db-journal
+
 # Instagram sync pipeline
 scripts/instagram_sync/downloads/
 scripts/instagram_sync/state/

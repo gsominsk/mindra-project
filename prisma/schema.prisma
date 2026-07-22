@@ -78,3 +78,53 @@ model RawInstagramPost {
   updatedAt     DateTime @updatedAt
   nextRetryAt   DateTime @default(now()) // Карантинный таймер ретраев
 }
+
+// =============================================
+// Party Prompts models
+// =============================================
+
+model PromptList {
+  id          String             @id @default(cuid())
+  name        String
+  order       Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  attachments PromptAttachment[]
+}
+
+model PromptAttachment {
+  id            String                    @id @default(cuid())
+  name          String
+  prompt        String                    @default("")
+  imageUrl      String?                   // путь в /public/uploads/ или внешний URL
+  isUploaded    Boolean                   @default(false)
+  referenceUrl  String?                   // первый референс (обратная совместимость)
+  referenceUrls String?                   // JSON-массив URL (до 2 референсов)
+  order         Int                       @default(0)
+  listId        String
+  list          PromptList                @relation(fields: [listId], references: [id], onDelete: Cascade)
+  history       PromptAttachmentHistory[]
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+}
+
+model PromptAttachmentHistory {
+  id            String           @id @default(cuid())
+  imageUrl      String
+  prompt        String           @default("")
+  isUploaded    Boolean          @default(false)
+  referenceUrl  String?          // первый референс
+  referenceUrls String?          // JSON-массив URL (до 2 референсов)
+  attachmentId  String
+  attachment    PromptAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime         @default(now())
+}
+
+model PromptSettings {
+  id                    String   @id @default("default")
+  openRouterKey         String   @default("")
+  timerDuration         Int      @default(5)
+  autoSendTranscription Boolean  @default(false)
+  hideTextPrompt        Boolean  @default(false)
+  updatedAt             DateTime @updatedAt
+}
