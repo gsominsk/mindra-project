@@ -100,14 +100,3 @@ CREATE UNIQUE INDEX "RawInstagramPost_shortcode_key" ON "RawInstagramPost"("shor
 
 -- CreateIndex
 CREATE UNIQUE INDEX "EventPage_igShortcode_key" ON "EventPage"("igShortcode");
-
-┌─────────────────────────────────────────────────────────┐
-│  Update available 5.22.0 -> 7.9.0                       │
-│                                                         │
-│  This is a major update - please follow the guide at    │
-│  https://pris.ly/d/major-version-upgrade                │
-│                                                         │
-│  Run the following to update                            │
-│    npm i --save-dev prisma@latest                       │
-│    npm i @prisma/client@latest                          │
-└─────────────────────────────────────────────────────────┘
