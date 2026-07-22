@@ -987,7 +987,134 @@ Nginx отдаёт `/uploads/` напрямую с диска, минуя Next.j
 Именование (7.2) применяется **только к новым загрузкам** — старые UUID-имена остаются и продолжают отдаваться (catch-all роут не зависит от формата имени).
 
 ---
-*Статус аудита: ВЫПОЛНЕН (2026-07-22). Билд зелёный (`npm run build` → EXIT 0). Docker-деплой РАБОЧИЙ — образ собирается, контейнер стартует, миграции применяются, все роуты `/party-prompts*` отвечают корректно после авторизации. `env.example` — полный шаблон (15 переменных включая JWT_SECRET). **Фаза 7 ВЫПОЛНЕНА и подтверждена ручным UI-тестом пользователя 2026-07-22** (раздел 20.10). **Security-исправление 19.6:** `JWT_SECRET` добавлен в `env.example`/`.env` — без него прод уязвим к подделке admin-cookie. Осталось: подготовить `.env` на сервере (путь A, 6.2 — **обязательно** сгенерировать `JWT_SECRET=openssl rand -hex 32`) и задеплоить (6.3).*
+
+## 21. 🏗️ Прод-деплой без Docker на shared-хостинге Beget (CloudLinux) — Аудит 2026-07-22
+
+> **Контекст:** Целевой сервер — shared-хостинг Beget (`hosting-3.default-host.net`), CloudLinux 8 с LVE, пользователь `ct603752`, **без root-доступа**. Docker невозможен (нет root, нет доступа к ядру). Диагностика выполнена через `scripts/diagnose-hosting.sh` (коммит `5c8e9e9`).
+
+### 21.1. Диагностика хостинга (факты из `diagnose-hosting.sh`)
+
+| Компонент | Доступно | Путь / значение |
+|---|---|---|
+| Node.js | ✅ | `/usr/local/node22/bin/node` v22.23.1 |
+| npm | ✅ | v10.9.8 |
+| npx | ✅ | — |
+| git | ✅ | v2.43.7 |
+| sqlite3 | ✅ | v3.26.0 |
+| openssl + libssl | ✅ | `/lib64/libssl3.so` (Prisma работает) |
+| Порт 3000 | ✅ bindable | Node app будет слушать тут |
+| Порт 80 | 🔴 EACCES | Нельзя без root → нужен reverse proxy |
+| pm2 / forever / systemd | 🔴 нет | Auto-restart нужно решать |
+| nginx / apache в PATH | 🔴 нет | Но Beget имеет свой (управляется через панель) |
+| npm global writable | 🔴 нет | `/usr/local/node22` не writable — pm2 ставится локально |
+| **`.cl.selector`** | ✅ есть | **CloudLinux Node.js Selector** — авто-restart через панель |
+| `~/public/` | ✅ есть | Web root Beget (static файлы) |
+| `~/mindra-project/` | ✅ клонирован | Свежий клон (без node_modules/.next/dev.db) |
+| RAM | ⚠️ 128GB host / LVE unknown | Build нужен ~500MB-1GB, нужно проверить LVE |
+| Disk | ✅ 1.7TB free | Места достаточно |
+| Network | ✅ | github.com + registry.npmjs.org доступны |
+
+### 21.2. Архитектура прод-деплоя без Docker
+
+```
+Internet (HTTP/HTTPS, порт 80/443)
+  │
+  ▼
+Beget nginx (управляется панелью, SSL-сертификат через панель)
+  │  proxy_pass → http://127.0.0.1:3000
+  ▼
+Node.js app (порт 3000)
+  │  запущен через CloudLinux Node.js Selector (панель) ИЛИ pm2
+  │  NODE_ENV=production
+  │
+  ├── Next.js server (next start / standalone server.js)
+  ├── SQLite: ~/mindra-data/dev.db (ВНЕ клона — переживает git pull)
+  ├── Uploads: ~/mindra-project/public/uploads/ (gitignored, переживает git pull)
+  ├── Media: ~/mindra-project/public/media/ → symlink на ~/public/media/
+  └── .env: ~/mindra-project/.env (gitignored, JWT_SECRET + пароли + SMTP)
+```
+
+### 21.3. Покрытие дыр (Docker → non-Docker)
+
+| Дыра | Docker решение | Non-Docker решение | Статус |
+|---|---|---|---|
+| **Auto-restart** | `restart: unless-stopped` | CloudLinux Node.js Selector (панель) — primary. pm2 local — fallback. | ✅ Покрыто |
+| **Порт 80** | `ports: 80:3000` | Beget nginx proxy (настраивается в панели → Node.js app) | ✅ Покрыто |
+| **SQLite persist** | `sqlite-data` volume | `~/mindra-data/dev.db` ВНЕ клона репо. `DATABASE_URL=file:/home/ct603752/mindra-data/dev.db` в `.env` | ✅ Покрыто |
+| **Uploads persist** | `uploads-data` volume | `~/mindra-project/public/uploads/` — gitignored, не затирается `git pull` (untracked) | ✅ Покрыто |
+| **Media (Instagram)** | `/root/media:/app/public/media:ro` | `~/public/media/` (web root Beget) + symlink `~/mindra-project/public/media → ~/public/media` | ✅ Покрыто |
+| **Миграции при старте** | `docker-entrypoint.sh` → `prisma migrate deploy` | Ручной запуск `npx prisma migrate deploy` перед стартом (в deploy-скрипте) | ✅ Покрыто |
+| **NODE_ENV** | compose `environment` | В `.env` ИЛИ в команде запуска `NODE_ENV=production` | ✅ Покрыто |
+| **JWT_SECRET** | `env_file: .env` | Генерация `openssl rand -hex 32` → `.env` на сервере (раздел 19.6) | ✅ Покрыто |
+| **ig-sync sidecar** | `profiles: [sync]` Docker service | **Не деплоится** на shared-хостинге (нужен Python + cron). Future work — раздел 21.7 | ⏳ Отложено |
+
+### 21.4. Стратегия запуска (2 варианта)
+
+**Вариант A — CloudLinux Node.js Selector (primary, рекомендуется):**
+- В панели Beget: раздел «Node.js» (CloudLinux Selector)
+- Создать приложение: root `~/mindra-project`, Node 22, entry `npm start`, порт 3000
+- Selector обеспечивает: auto-restart, nginx proxy на порт 80, управление через панель
+- `.env` подхватывается Next.js автоматически (т.к. файл в корне проекта)
+
+**Вариант B — pm2 local install (fallback, если Selector недоступен):**
+- `npm install pm2 --prefix ~/mindra-project` (в project node_modules, не global)
+- `cd ~/mindra-project && npx pm2 start "npm start" --name mindra -- -p 3000`
+- `npx pm2 save && npx pm2 startup` (но без systemd — `pm2 startup` может не сработать на shared)
+- Reverse proxy: настроить в панели Beget (Apache proxy_pass на :3000) ИЛИ использовать `.htaccess` RewriteRule
+
+**Вариант C — nohup + bash loop (последний fallback, НЕ прод-grade):**
+- `nohup bash -c 'while true; do npm start -- -p 3000; sleep 2; done' &`
+- Нет auto-restart при перезагрузке сервера. Только для теста.
+
+### 21.5. Deploy-скрипт (`scripts/deploy-no-docker.sh`)
+
+Скрипт автоматизирует: git pull → .env → npm ci → prisma generate → migrate deploy → build → инструкции по запуску. См. отдельный файл `scripts/deploy-no-docker.sh` (коммит после тестирования).
+
+### 21.6. Что нужно проверить в панели Beget перед деплоем
+
+1. **Раздел «Node.js»** (CloudLinux Selector) — есть ли? Если да — это Вариант A.
+2. **SSL-сертификат** — есть ли бесплатный Let's Encrypt через панель?
+3. **Домен** — какой URL привязан к аккаунту? (нужно для `NEXT_PUBLIC_MEDIA_URL` и тестирования)
+4. **LVE RAM лимит** — какой лимит памяти на аккаунт? (Build нужен ~500MB-1GB. Если лимит 256MB — build упадёт с OOM. Тогда собирать локально и заливать `.next/` через scp/rsync.)
+5. **Apache proxy / .htaccess** — можно ли настроить proxy_pass на :3000?
+
+### 21.7. Risks и mitigations
+
+| Риск | Mitigation |
+|---|---|
+| **OOM при `npm run build`** (LVE RAM лимит) | Если build падает: собирать локально на Mac, заливать `.next/` + `node_modules/` + `public/` через `rsync -avz --exclude='.env'` |
+| **SQLite потеря при `git pull`** | БД в `~/mindra-data/dev.db` ВНЕ клона. `git pull` не затронет. |
+| **Uploads потеря при `git pull`** | `public/uploads/` в `.gitignore` → `git pull` не затирает untracked |
+| **Нет auto-restart при ребуте сервера** | Node.js Selector (панель) auto-start. pm2 — `pm2 resurrection`. nohup — ручной restart |
+| **ig-sync не работает** | Python sidecar недоступен на shared. Instagram sync отложен. Основное приложение работает без него. |
+| **Порт 3000 открыт наружу** | Beget firewall + nginx proxy. Порт 3000 должен слушать только `127.0.0.1` (Next.js по умолчанию слушает `0.0.0.0` — нужно `next start -H 127.0.0.1`) |
+| **`.env` с секретами на shared** | Права `chmod 600 .env`. Beget CageFS изолирует юзеров. `.env` в `.gitignore` |
+
+### 21.8. Чек-лист деплоя (non-Docker, Beget)
+
+- [ ] 21.8.1. Проверить панель Beget: Node.js Selector, SSL, домен, LVE RAM (раздел 21.6)
+- [ ] 21.8.2. `cd ~/mindra-project && git pull origin main`
+- [ ] 21.8.3. `mkdir -p ~/mindra-data` (SQLite вне клона)
+- [ ] 21.8.4. Создать `.env` из `env.example`:
+  - `JWT_SECRET=$(openssl rand -hex 32)`
+  - `ADMIN_PASSWORD` / `PARTY_PROMPTS_PASS` — сильные пароли (не `admin`)
+  - `DATABASE_URL=file:/home/ct603752/mindra-data/dev.db`
+  - `SMTP_HOST/PORT/USER/PASS/RECIPIENT_EMAIL` — прод-SMTP
+  - `OPENROUTER_API_KEY` — ротированный (раздел 19.5)
+  - `chmod 600 .env`
+- [ ] 21.8.5. `npm ci` (установить все deps — нужны для build)
+- [ ] 21.8.6. `npx prisma generate`
+- [ ] 21.8.7. `npx prisma migrate deploy` (применить миграции к `~/mindra-data/dev.db`)
+- [ ] 21.8.8. `npm run build` (если OOM — собирать локально, rsync `.next/`)
+- [ ] 21.8.9. Настроить media symlink: `ln -s ~/public/media ~/mindra-project/public/media`
+- [ ] 21.8.10. Запуск (Вариант A/B/C из 21.4)
+- [ ] 21.8.11. Настроить reverse proxy в панели Beget (nginx → :3000)
+- [ ] 21.8.12. Проверить: `curl http://localhost:3000/login` → 200
+- [ ] 21.8.13. Проверить через домен: `https://<домен>/login` → 200
+- [ ] 21.8.14. Тест: логин, загрузка файла, превью без рестарта (Фаза 7)
+
+---
+*Статус аудита: ВЫПОЛНЕН (2026-07-22). Билд зелёный (`npm run build` → EXIT 0). Docker-деплой РАБОЧИЙ — образ собирается, контейнер стартует, миграции применяются, все роуты `/party-prompts*` отвечают корректно после авторизации. `env.example` — полный шаблон (15 переменных включая JWT_SECRET). **Фаза 7 ВЫПОЛНЕНА и подтверждена ручным UI-тестом пользователя 2026-07-22** (раздел 20.10). **Security-исправление 19.6:** `JWT_SECRET` добавлен в `env.example`/`.env` — без него прод уязвим к подделке admin-cookie. **Раздел 21:** спроектирован прод-деплой без Docker на shared-хостинге Beget (CloudLinux) — архитектура, покрытие дыр, deploy-скрипт. Осталось: проверить панель Beget (21.6), выполнить deploy (21.8).*
 
 
 
