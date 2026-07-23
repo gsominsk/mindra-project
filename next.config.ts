@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // output: 'standalone',  // disabled for non-Docker deploy on shared hosting (next start)
+  output: 'standalone',  // required for ukraine.com.ua Node.js Selector + Phusion Passenger deploy
 };
 
 export default nextConfig;
