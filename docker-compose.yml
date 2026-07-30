@@ -11,8 +11,11 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      # Mount server media directory to /app/public/media inside container
-      - /root/media:/app/public/media:ro
+      # Mount server media directory to /app/public/media inside container.
+      # Lives under /var/www (not /root) so Nginx worker (www-data) can also
+      # read it directly — Next.js standalone does not serve public/ files
+      # added after build, so Nginx serves /media/ from the same directory.
+      - /var/www/media:/app/public/media:ro
       - uploads-data:/app/public/uploads
       - sqlite-data:/app/prisma
       - party-logs:/app/logs/party_prompts
