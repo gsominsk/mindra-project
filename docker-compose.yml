@@ -5,8 +5,11 @@ services:
       dockerfile: Dockerfile
     container_name: mindra-website
     restart: unless-stopped
+    # Bind only to localhost so the container is NOT reachable directly on
+    # the public IP. Nginx (reverse proxy with TLS) fronts it on 443/80.
+    # Without this, Docker opens port 80 to 0.0.0.0 and bypasses UFW.
     ports:
-      - "80:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       # Mount server media directory to /app/public/media inside container
       - /root/media:/app/public/media:ro
