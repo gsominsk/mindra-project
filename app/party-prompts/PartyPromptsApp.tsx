@@ -22,29 +22,27 @@ import {
   ClientAttachmentHistory
 } from './actions';
 
-function DashboardCarousel({ 
-  items, 
-  variant = 'default', 
+function DashboardCarousel({
+  items,
+  variant = 'default',
   isTimerRunning = false,
   enableBlur = false
-}: { 
-  items: { url?: string; prompt?: string }[], 
-  variant?: 'default' | 'contain', 
+}: {
+  items: { url?: string; prompt?: string }[],
+  variant?: 'default' | 'contain',
   isTimerRunning?: boolean,
-  enableBlur?: boolean 
+  enableBlur?: boolean
 }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const { hasStartedGeneration, setHasStartedGeneration } = useAppStore();
 
+  // When Play is pressed (isTimerRunning turns true), unblur the first slide.
+  // No automatic scrolling — user controls the carousel manually.
   useEffect(() => {
-    if (emblaApi && isTimerRunning) {
-      if (hasStartedGeneration) {
-        emblaApi.scrollNext();
-      } else {
-        setHasStartedGeneration(true);
-      }
+    if (isTimerRunning && !hasStartedGeneration) {
+      setHasStartedGeneration(true);
     }
-  }, [emblaApi, isTimerRunning, hasStartedGeneration, setHasStartedGeneration]);
+  }, [isTimerRunning, hasStartedGeneration, setHasStartedGeneration]);
 
   const itemsKey = JSON.stringify(items?.map(i => i.url));
 
@@ -470,6 +468,8 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
     } else if (timeLeft === 0 && isTimerRunning) {
       setIsTimerRunning(false);
       setIsTimerVisible(false);
+      // Reset blur flag so the next Play re-blurs the first slide.
+      useAppStore.getState().setHasStartedGeneration(false);
       if (mediaRecorderRef.current) {
         try { mediaRecorderRef.current.stop(); } catch (_e) {}
       }
