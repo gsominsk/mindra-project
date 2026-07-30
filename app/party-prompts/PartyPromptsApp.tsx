@@ -36,13 +36,22 @@ function DashboardCarousel({
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const { hasStartedGeneration, setHasStartedGeneration } = useAppStore();
 
-  // When Play is pressed (isTimerRunning turns true), unblur the first slide.
-  // No automatic scrolling — user controls the carousel manually.
+  // When Play is pressed (isTimerRunning turns true):
+  // - first press: unblur the current slide by setting hasStartedGeneration
+  // - subsequent presses: advance to the next slide
+  // hasStartedGeneration is read from the store via getState() (not the hook
+  // binding) so it stays OUT of the dependency array — otherwise the effect
+  // re-runs in the same render right after setting it to true, scrolling past
+  // the first slide instead of waiting for the next Play press.
   useEffect(() => {
-    if (isTimerRunning && !hasStartedGeneration) {
+    if (!emblaApi || !isTimerRunning) return;
+    if (useAppStore.getState().hasStartedGeneration) {
+      emblaApi.scrollNext();
+    } else {
       setHasStartedGeneration(true);
     }
-  }, [isTimerRunning, hasStartedGeneration, setHasStartedGeneration]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTimerRunning]);
 
   const itemsKey = JSON.stringify(items?.map(i => i.url));
 
@@ -468,8 +477,6 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
     } else if (timeLeft === 0 && isTimerRunning) {
       setIsTimerRunning(false);
       setIsTimerVisible(false);
-      // Reset blur flag so the next Play re-blurs the first slide.
-      useAppStore.getState().setHasStartedGeneration(false);
       if (mediaRecorderRef.current) {
         try { mediaRecorderRef.current.stop(); } catch (_e) {}
       }
