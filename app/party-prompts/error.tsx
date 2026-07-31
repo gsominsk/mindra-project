@@ -38,16 +38,16 @@ export default function PartyPromptsError({
         <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto mb-5 text-rose-400">
           <AlertTriangle size={28} />
         </div>
-        <h2 className="text-xl font-bold text-neutral-100 mb-2">Произошел сбой при загрузке страницы</h2>
+        <h2 className="text-xl font-bold text-neutral-100 mb-2">Стался збій при завантаженні сторінки</h2>
         <p className="text-neutral-400 text-sm mb-6 leading-relaxed">
-          {error.message || 'Возникла непредвиденная ошибка. Детали автоматически сохранены в лог-файл.'}
+          {error.message || 'Виникла непередбачувана помилка. Деталі автоматично збережено у лог-файл.'}
         </p>
         <button
           onClick={() => reset()}
           className="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 text-sm"
         >
           <RefreshCw size={18} />
-          Попробовать снова
+          Спробувати знову
         </button>
       </div>
     </div>

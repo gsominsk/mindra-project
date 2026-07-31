@@ -300,9 +300,9 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
 
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
-    const formattedDate = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-    const formattedTime = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    return `${formattedDate} в ${formattedTime}`;
+    const formattedDate = date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+    const formattedTime = date.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    return `${formattedDate} о ${formattedTime}`;
   };
 
   const mediaRecorderRef = useRef<{ stop: () => void } | null>(null);
@@ -342,7 +342,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
     }
     if (!openRouterKey.trim()) {
       logger.warn('OPENROUTER_API', `Generation failed: OpenRouter Key is missing`);
-      alert('Пожалуйста, введите OpenRouter API Key в настройках.');
+      alert('Будь ласка, введіть OpenRouter API Key у налаштуваннях.');
       return;
     }
     
@@ -388,17 +388,17 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
             logger.success('OPENROUTER_API', `Successfully generated image for Column ${column}`, { imageUrl });
           } else {
             logger.error('OPENROUTER_API', `No image found in response`, data);
-            alert('Не удалось извлечь картинку из ответа.');
+            alert('Не вдалося витягти картинку із відповіді.');
           }
         } else {
           logger.error('OPENROUTER_API', `API error ${res.status}`, data);
-          const errorMessage = data.error?.message || 'Ошибка генерации картинки';
+          const errorMessage = data.error?.message || 'Помилка генерації картинки';
           alert(errorMessage);
         }
       });
     } catch (err) {
       logger.error('OPENROUTER_API', `Network failure for Column ${column}`, err);
-      alert('Ошибка при соединении с сервером OpenRouter');
+      alert('Помилка при з\'єднанні із сервером OpenRouter');
     } finally {
       if (column === 1) setIsGenerating1(false);
       else setIsGenerating2(false);
@@ -410,14 +410,14 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
     const SpeechRecognitionClass = (window as unknown as { SpeechRecognition: new () => SpeechRecognition; webkitSpeechRecognition: new () => SpeechRecognition }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition: new () => SpeechRecognition }).webkitSpeechRecognition;
     if (!SpeechRecognitionClass) {
       logger.warn('SPEECH_REC', 'SpeechRecognition API is not supported in this browser');
-      alert("Ваш браузер не поддерживает распознавание речи.");
+      alert("Ваш браузер не підтримує розпізнавання мови.");
       return;
     }
 
     try {
-      logger.info('SPEECH_REC', 'Starting speech recognition (ru-RU)...');
+      logger.info('SPEECH_REC', 'Starting speech recognition (uk-UA)...');
       const recognition = new SpeechRecognitionClass();
-      recognition.lang = 'ru-RU';
+      recognition.lang = 'uk-UA';
       recognition.continuous = true;
       recognition.interimResults = true;
       
@@ -779,7 +779,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
   const handleGenerateImageInDetail = async (promptText: string) => {
     if (!promptText.trim() || !selectedAttachment) return;
     if (!openRouterKey.trim()) {
-      alert('Пожалуйста, введите OpenRouter API Key в настройках.');
+      alert('Будь ласка, введіть OpenRouter API Key у налаштуваннях.');
       return;
     }
 
@@ -815,7 +815,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
         }
 
         if (!imageUrl) {
-          alert('Не удалось сгенерировать картинку.');
+          alert('Не вдалося згенерувати картинку.');
           return;
         }
 
@@ -922,11 +922,11 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
                 </button>
                 {currentView === 'dashboard' && (
                   <button onClick={() => { setCurrentView('main'); setIsMenuOpen(false); router.push('/party-prompts'); }} className="flex items-center gap-3 p-3 rounded-xl transition-colors text-left hover:bg-neutral-800 text-neutral-200">
-                    <ImageIcon size={18} /><span className="font-medium">Генерация</span>
+                    <ImageIcon size={18} /><span className="font-medium">Генерація</span>
                   </button>
                 )}
                 <button onClick={() => { setIsMenuOpen(false); setIsSettingsOpen(true); }} className="flex items-center gap-3 p-3 rounded-xl hover:bg-neutral-800 text-neutral-200 transition-colors text-left">
-                  <Settings size={18} /><span className="font-medium">Настройки</span>
+                  <Settings size={18} /><span className="font-medium">Налаштування</span>
                 </button>
               </div>
             </motion.div>
@@ -941,12 +941,12 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSettingsOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 z-50 shadow-2xl">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-medium tracking-tight">Настройки</h2>
+                <h2 className="text-xl font-medium tracking-tight">Налаштування</h2>
                 <button onClick={() => setIsSettingsOpen(false)} className="text-neutral-400 hover:text-neutral-200 transition-colors"><X size={20} /></button>
               </div>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm text-neutral-400 block">Время таймера (сек)</label>
+                  <label className="text-sm text-neutral-400 block">Час таймера (сек)</label>
                   <div className="flex items-center gap-3 bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3">
                     <input 
                       type="number" 
@@ -993,7 +993,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
                   </button>
                 </div>
                 <div className="flex items-center justify-between">
-                  <label className="text-sm text-neutral-400">Авто-отправка после таймера</label>
+                  <label className="text-sm text-neutral-400">Авто-відправка після таймера</label>
                   <button 
                     onClick={() => {
                       if (!hideTextPrompt) {
@@ -1021,7 +1021,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAttachmentsOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col bg-neutral-900 border border-neutral-800 rounded-3xl z-50 shadow-2xl">
               <div className="flex justify-between items-center p-6 border-b border-neutral-800 shrink-0">
-                <h2 className="text-xl font-medium tracking-tight">Вложения</h2>
+                <h2 className="text-xl font-medium tracking-tight">Вкладення</h2>
                 <button onClick={() => setIsAttachmentsOpen(false)} className="text-neutral-400 hover:text-neutral-200 transition-colors"><X size={20} /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-6" onDragOver={handleDragOver} onDrop={handleDropOnAttachments}>
@@ -1091,7 +1091,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
               <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-3xl shadow-2xl flex flex-col my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-6 border-b border-neutral-800 shrink-0">
                   <div className="flex flex-col gap-0.5">
-                    <h2 className="text-xl font-medium tracking-tight">Детали элемента</h2>
+                    <h2 className="text-xl font-medium tracking-tight">Деталі елемента</h2>
                     {selectedAttachment.name && (<span className="text-[11px] font-mono text-neutral-500">{selectedAttachment.name}</span>)}
                   </div>
                   <button onClick={() => setSelectedAttachment(null)} className="text-neutral-400 hover:text-neutral-200 transition-colors"><X size={20} /></button>
@@ -1102,7 +1102,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
                     {isDraggingOnDetail && (
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-neutral-900/90 border-4 border-dashed border-indigo-500/50 rounded-2xl m-6 backdrop-blur-sm gap-2">
                         <Plus className="w-12 h-12 text-indigo-400 animate-bounce" />
-                        <span className="font-semibold text-lg text-neutral-200">Перетащите файлы сюда</span>
+                        <span className="font-semibold text-lg text-neutral-200">Перетягніть файли сюди</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1154,9 +1154,9 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
                   {/* History */}
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-neutral-400">История загрузок</span>
+                      <span className="text-sm font-medium text-neutral-400">Історія завантажень</span>
                       <button onClick={() => fileInputRef.current?.click()} className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 bg-neutral-950 border border-neutral-800 hover:border-neutral-700 px-2.5 py-1.5 rounded-lg">
-                        <Plus className="w-3.5 h-3.5" /> Загрузить еще
+                        <Plus className="w-3.5 h-3.5" /> Завантажити ще
                       </button>
                       <input type="file" multiple accept="image/*" ref={fileInputRef} className="hidden" onChange={handleFileChangeInDetail} />
                     </div>
@@ -1197,7 +1197,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
                                     if (selectedReferences.length >= 2) { setSelectedReferences(prev => [...prev.slice(1), newRef]); }
                                     else { setSelectedReferences(prev => [...prev, newRef]); }
                                   }
-                                }} className="absolute top-1 right-1 z-20 p-1 transition-all" title="Использовать как референс">
+                                }} className="absolute top-1 right-1 z-20 p-1 transition-all" title="Використати як референс">
                                   <Star className={`w-4 h-4 transition-colors ${selectedReferences.some(r => r.id === histItem.id) ? 'fill-yellow-400 text-yellow-400' : 'fill-none text-yellow-400 hover:text-yellow-300'}`} />
                                 </button>
                               </div>
@@ -1216,12 +1216,12 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
                           {selectedReferences.map((ref) => (
                             <div key={ref.id} className="relative w-7 h-7 rounded overflow-hidden group/ref-thumb">
                               <img src={ref.url} alt="ref" className="w-full h-full object-cover" />
-                              <button onClick={() => setSelectedReferences(prev => prev.filter(r => r.id !== ref.id))} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/ref-thumb:opacity-100 transition-opacity" title="Убрать"><X className="w-3 h-3 text-white" /></button>
+                              <button onClick={() => setSelectedReferences(prev => prev.filter(r => r.id !== ref.id))} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/ref-thumb:opacity-100 transition-opacity" title="Прибрати"><X className="w-3 h-3 text-white" /></button>
                             </div>
                           ))}
                         </div>
                       )}
-                      <input type="text" className={`w-full bg-neutral-950 border border-neutral-800 rounded-xl py-3 ${selectedReferences.length > 0 ? (selectedReferences.length === 1 ? 'pl-16' : 'pl-28') : 'pl-4'} pr-12 text-sm outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-neutral-200`} placeholder="Опишите желаемую картинку для генерации..." value={detailGenPrompt} onChange={e => setDetailGenPrompt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !isGeneratingDetail && detailGenPrompt.trim()) handleGenerateImageInDetail(detailGenPrompt); }} disabled={isGeneratingDetail} />
+                      <input type="text" className={`w-full bg-neutral-950 border border-neutral-800 rounded-xl py-3 ${selectedReferences.length > 0 ? (selectedReferences.length === 1 ? 'pl-16' : 'pl-28') : 'pl-4'} pr-12 text-sm outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-neutral-200`} placeholder="Опишіть бажану картинку для генерації..." value={detailGenPrompt} onChange={e => setDetailGenPrompt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !isGeneratingDetail && detailGenPrompt.trim()) handleGenerateImageInDetail(detailGenPrompt); }} disabled={isGeneratingDetail} />
                       <button onClick={() => handleGenerateImageInDetail(detailGenPrompt)} disabled={isGeneratingDetail || !detailGenPrompt.trim()} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-neutral-200 text-neutral-950 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all flex items-center justify-center">
                         {isGeneratingDetail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                       </button>
@@ -1286,7 +1286,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
                 {isGenerating1 && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 flex flex-col items-center justify-center gap-4 ${image1 ? 'bg-neutral-950/80 backdrop-blur-sm' : 'text-neutral-500'}`}>
                     <Loader2 className={`w-8 h-8 animate-spin ${image1 ? 'text-indigo-400' : 'text-indigo-500'}`} />
-                    <span className={`text-sm ${image1 ? 'text-neutral-300' : ''}`}>Рисуем магию...</span>
+                    <span className={`text-sm ${image1 ? 'text-neutral-300' : ''}`}>Малюємо магію...</span>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1319,7 +1319,7 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
                 <VoiceVisualizer isActive={isRecording} />
               ) : (
                 <>
-                  <input type="text" className="w-full bg-neutral-950 border border-neutral-800 rounded-full py-3 pl-12 pr-12 text-sm outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-neutral-200" placeholder={isRecording ? "Запись идет..." : "Здесь появится распознанный текст..."} value={prompt2} onChange={e => setPrompt2(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleGenerateImage(prompt2, 2)} />
+                  <input type="text" className="w-full bg-neutral-950 border border-neutral-800 rounded-full py-3 pl-12 pr-12 text-sm outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-neutral-200" placeholder={isRecording ? "Запис іде..." : "Тут з'явиться розпізнаний текст..."} value={prompt2} onChange={e => setPrompt2(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleGenerateImage(prompt2, 2)} />
                   <button onClick={toggleRecording} className={`absolute left-1 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all ${isRecording ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'}`}>
                     {isRecording ? <Square className="w-4 h-4" fill="currentColor" /> : <Mic className="w-4 h-4" />}
                   </button>
@@ -1331,13 +1331,13 @@ export default function PartyPromptsApp({ serverLists = [], serverSettings, init
             </div>
             <div className="flex-1 mt-2 w-full flex flex-col items-center justify-center bg-neutral-950 border border-neutral-800 rounded-2xl overflow-hidden relative min-h-[200px]">
               {image2 ? (<img src={image2} alt="Generated 2" className="w-full h-auto max-h-full object-contain" referrerPolicy="no-referrer" />) : (
-                <div className="text-neutral-600 flex flex-col items-center gap-2"><ImageIcon className="w-8 h-8 opacity-40" /><span className="text-sm text-center px-4">Результат генерации</span></div>
+                <div className="text-neutral-600 flex flex-col items-center gap-2"><ImageIcon className="w-8 h-8 opacity-40" /><span className="text-sm text-center px-4">Результат генерації</span></div>
               )}
               <AnimatePresence>
                 {isGenerating2 && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 flex flex-col items-center justify-center gap-4 ${image2 ? 'bg-neutral-950/80 backdrop-blur-sm' : 'text-neutral-500'}`}>
                     <Loader2 className={`w-8 h-8 animate-spin ${image2 ? 'text-indigo-400' : 'text-indigo-500'}`} />
-                    <span className={`text-sm ${image2 ? 'text-neutral-300' : ''}`}>Создаем образ...</span>
+                    <span className={`text-sm ${image2 ? 'text-neutral-300' : ''}`}>Створюємо образ...</span>
                   </motion.div>
                 )}
               </AnimatePresence>
