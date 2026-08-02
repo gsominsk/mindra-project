@@ -83,9 +83,15 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Copy entrypoint script (runs migrations before starting the server)
 COPY --chmod=0755 docker-entrypoint.sh ./docker-entrypoint.sh
 
-# Create the prisma data directory and hand ownership to the non-root user.
-# The sqlite volume (sqlite-data) mounts here; migrations write dev.db into it.
-RUN mkdir -p /app/prisma && chown -R nextjs:nodejs /app
+# Create the prisma data directory and the party-prompts log directory, then
+# hand ownership to the non-root user. Both named volumes (sqlite-data and
+# party-logs) mount over these paths: a volume initialised over a path that
+# exists in the image inherits the image's ownership, so the nextjs user can
+# write to them. Without this, /app/logs/party_prompts is created by Docker
+# as root:root when the party-logs volume is first mounted, and the process
+# (running as nextjs) gets EACCES on every appendServerLog call — silently
+# dropping all server-side logs.
+RUN mkdir -p /app/prisma /app/logs/party_prompts && chown -R nextjs:nodejs /app
 
 # Switch to non-root user
 USER nextjs

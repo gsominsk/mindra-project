@@ -18,11 +18,19 @@ function LoginForm() {
         setLoading(true);
         setError("");
 
+        // Timeout guard: if the server does not respond within 10s, abort
+        // instead of hanging on "Verifying..." indefinitely. Without this a
+        // slow/overloaded origin (512MB droplet + swap) leaves the user stuck
+        // with no feedback and no way to know whether the request was sent.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         try {
             const res = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, password }),
+                signal: controller.signal,
             });
 
             if (res.ok) {
@@ -33,8 +41,21 @@ function LoginForm() {
                 setError(data.error || "Invalid credentials");
             }
         } catch (err) {
-            setError("Something went wrong");
+            // Distinguish abort (timeout) from network/other errors so the
+            // user gets an actionable message instead of a generic one.
+            if (err instanceof DOMException && err.name === "AbortError") {
+                setError("Server not responding. Please try again.");
+                console.error("Login fetch aborted (timeout 10s):", { username });
+            } else if (err instanceof TypeError) {
+                // fetch() throws TypeError on network failure (server unreachable).
+                setError("Network error. Check your connection and try again.");
+                console.error("Login fetch network error:", err);
+            } else {
+                setError("Something went wrong. Please try again.");
+                console.error("Login fetch unexpected error:", err);
+            }
         } finally {
+            clearTimeout(timeoutId);
             setLoading(false);
         }
     };
